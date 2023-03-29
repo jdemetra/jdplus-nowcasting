@@ -56,7 +56,7 @@ public class VarInitialization implements ISsfInitialization {
     public void Pf0(FastMatrix pf0) {
         if (V0 != null) {
             int nvars = V0.getRowsCount();
-            pf0.topLeft(nvars, nvars).copy(V0);
+            pf0.topLeft(nvars, nvars).get().copy(V0);
         }
     }
 

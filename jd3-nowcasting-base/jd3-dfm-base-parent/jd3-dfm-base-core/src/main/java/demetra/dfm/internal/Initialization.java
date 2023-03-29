@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 National Bank of Belgium
+ * Copyright 2023 National Bank of Belgium
  * 
  * Licensed under the EUPL, Version 1.2 or – as soon they will be approved 
  * by the European Commission - subsequent versions of the EUPL (the "Licence");
@@ -20,7 +20,6 @@ import jdplus.data.DataBlock;
 import jdplus.math.matrices.SymmetricMatrix;
 import jdplus.ssf.ISsfInitialization;
 import jdplus.math.linearsystem.LinearSystemSolver;
-import jdplus.math.matrices.FastMatrix;
 import jdplus.math.matrices.FastMatrix;
 
 /**
@@ -81,7 +80,7 @@ class Initialization implements ISsfInitialization {
         }
         SymmetricMatrix.fromLower(cov);
         int nlx = dynamics.nlx;
-        if (dynamics == null || nl == nlx) {
+        if (nl == nlx) {
             return cov;
         }
         int dim = nlx*nf;

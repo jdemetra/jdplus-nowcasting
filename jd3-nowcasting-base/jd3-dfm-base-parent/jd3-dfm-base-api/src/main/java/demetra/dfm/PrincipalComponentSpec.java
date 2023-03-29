@@ -14,39 +14,30 @@
  * See the Licence for the specific language governing permissions and 
  * limitations under the Licence.
  */
-package demetra.dfm.internal;
+package demetra.dfm;
 
-import jdplus.data.DataBlock;
-import demetra.dfm.IDfmMeasurement;
+import demetra.timeseries.TimeSelector;
 
 /**
- * Z = 1 1 ... 1 (len times)
  *
- * @author Jean Palate
+ * @author palatej
  */
-public class CumulMeasurement implements IDfmMeasurement {
+@lombok.Value
+@lombok.Builder(builderClassName = "Builder", toBuilder = true)
+public class PrincipalComponentSpec {
+    
 
-    /**
-     */
-    public static final CumulMeasurement MC12 = new CumulMeasurement(12), MC4 = new CumulMeasurement(4);
-
-    public CumulMeasurement(int l) {
-        len = l;
+    public static final double DEF_NS = .80;
+    boolean enabled;
+    TimeSelector span;
+    double nonMissingThreshold;
+    
+    public static Builder builder(){
+        return new Builder()
+                .nonMissingThreshold(DEF_NS)
+                .span(TimeSelector.all());
     }
-    private final int len;
-
-    @Override
-    public int getLength() {
-        return len;
-    }
-
-    @Override
-    public void fill(DataBlock z) {
-        z.set(1);
-    }
-
-    @Override
-    public double dot(DataBlock x) {
-        return x.sum();
-    }
+    
+    public static final PrincipalComponentSpec DEFAULT_ENABLED=builder()
+            .enabled(true).build(), DEFAULT_DISABLED=builder().build();
 }

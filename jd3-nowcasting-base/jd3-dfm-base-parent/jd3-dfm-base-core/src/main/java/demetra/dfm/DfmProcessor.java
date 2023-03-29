@@ -16,64 +16,72 @@
  */
 package demetra.dfm;
 
+import demetra.dfm.timeseries.TsInformationSet;
+import demetra.math.matrices.Matrix;
+import jdplus.ssf.multivariate.IMultivariateSsf;
+import jdplus.ssf.multivariate.MultivariateFilteringResults;
+import jdplus.ssf.multivariate.MultivariateOrdinarySmoother;
+import jdplus.ssf.multivariate.MultivariateSmoothingResults;
+import jdplus.ssf.multivariate.SsfMatrix;
 
-///**
-// *
-// * @author Jean Palate
-// */
-//public class DfmProcessor implements IDfmProcessor {
-//
-//    private MSmoothingResults srslts_;
-//    private MFilteringResults frslts_;
-//    private boolean bvar_;
-//
-//    private void clear() {
-//        srslts_ = null;
-//        frslts_ = null;
-//    }
-//    
-//    public boolean isCalcVariance(){
-//        return bvar_;
-//    }
-//    
-//    public void setCalcVariance(boolean bvar){
-//        bvar_=bvar;
-//    }
-//
-//    /**
-//     * Retrieves the smoothing results
-//     *
-//     * @return The Smoothing results. May by null.
-//     */
-//    @Override
-//    public MSmoothingResults getSmoothingResults() {
-//        return srslts_;
-//    }
-//
-//    @Override
-//    public MFilteringResults getFilteringResults() {
-//        return frslts_;
-//    }
-//
-//    @Override
-//    public boolean process(DynamicFactorModel model, TsInformationSet input) {
-//        try {
-//            clear();
-//            Matrix M = input.generateMatrix(null);
-//            if (M.getColumnsCount() != model.getMeasurementsCount()) {
-//                throw new DfmException(DfmException.INCOMPATIBLE_DATA);
-//            }
-//            MSmoother smoother = new MSmoother();
-//            srslts_ = new MSmoothingResults();
-//            smoother.setCalcVariance(bvar_);
-//            IMSsf ssf = model.ssfRepresentation();
-//            smoother.process(ssf, new MultivariateSsfData(M.subMatrix().transpose(), null), srslts_);
-//            frslts_ = smoother.getFilteringResults();
-//            return true;
-//        } catch (Exception err) {
-//            srslts_ = null;
-//            return false;
-//        }
-//    }
-//
-//}
+
+/**
+ *
+ * @author Jean Palate
+ */
+public class DfmProcessor implements IDfmProcessor {
+
+    private MultivariateSmoothingResults srslts_;
+    private MultivariateFilteringResults frslts_;
+    private boolean bvar_;
+
+    private void clear() {
+        srslts_ = null;
+        frslts_ = null;
+    }
+    
+    public boolean isCalcVariance(){
+        return bvar_;
+    }
+    
+    public void setCalcVariance(boolean bvar){
+        bvar_=bvar;
+    }
+
+    /**
+     * Retrieves the smoothing results
+     *
+     * @return The Smoothing results. May by null.
+     */
+    @Override
+    public MultivariateSmoothingResults getSmoothingResults() {
+        return srslts_;
+    }
+
+    @Override
+    public MultivariateFilteringResults getFilteringResults() {
+        return frslts_;
+    }
+
+    @Override
+    public boolean process(DynamicFactorModel model, TsInformationSet input) {
+        try {
+            clear();
+            Matrix M = input.generateMatrix(null);
+            if (M.getColumnsCount() != model.getMeasurementsCount()) {
+                throw new DfmException(DfmException.INCOMPATIBLE_DATA);
+            }
+            MultivariateOrdinarySmoother smoother = new MultivariateOrdinarySmoother();
+            srslts_ = new MultivariateSmoothingResults();
+            smoother.setCalcVariance(bvar_);
+            IMultivariateSsf ssf = model.ssfRepresentation();
+            smoother.process(ssf, new SsfMatrix(M), srslts_);
+            frslts_ = smoother.getFilteringResults();
+            return true;
+        } catch (Exception err) {
+            srslts_ = null;
+            return false;
+        }
+    }
+
+}

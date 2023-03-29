@@ -63,16 +63,12 @@ public interface IDfmMeasurement {
      * 2 3 2 1); for type L, returns (1)
      */
     public static IDfmMeasurement measurement(final MeasurementType type) {
-        switch (type) {
-            case YoY:
-                return CumulMeasurement.MC12;
-            case Q:
-                return CumulatedVariationsMeasurement.MCD3;
-            case M:
-                return LevelMeasurement.ML;
-            default:
-                return null;
-        }
+        return switch (type) {
+            case YoY -> CumulMeasurement.MC12;
+            case Q -> CumulatedVariationsMeasurement.MCD3;
+            case M -> LevelMeasurement.ML;
+            default -> null;
+        };
     }
 
     public static MeasurementType getMeasurementType(final IDfmMeasurement m) {

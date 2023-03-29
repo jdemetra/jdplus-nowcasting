@@ -22,5 +22,13 @@
             <artifactId>jd3-toolkit-base-api</artifactId>
             <version>${jd3-main.version}</version>
         </dependency>
+        <dependency>
+            <groupId>eu.europa.ec.joinup.sat</groupId>
+            <artifactId>jd3-toolkit-base-api</artifactId>
+            <version>${jd3-main.version}</version>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

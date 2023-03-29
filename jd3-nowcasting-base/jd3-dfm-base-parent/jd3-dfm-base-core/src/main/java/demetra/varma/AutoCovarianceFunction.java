@@ -7,6 +7,7 @@ package demetra.varma;
 
 import jdplus.math.matrices.FastMatrix;
 import java.util.ArrayList;
+import jdplus.math.matrices.GeneralMatrix;
 
 /**
  *
@@ -14,23 +15,23 @@ import java.util.ArrayList;
  */
 public class AutoCovarianceFunction {
 
-    private final ArrayList<FastMatrix> covs_ = new ArrayList<>();
-    private final ArrayList<FastMatrix> g_ = new ArrayList<>();
-    private final VarmaModel varma_;
+    private final ArrayList<FastMatrix> covs = new ArrayList<>();
+    private final ArrayList<FastMatrix> g = new ArrayList<>();
+    private final VarmaModel varma;
 
     public AutoCovarianceFunction(VarmaModel varma) {
-        varma_ = varma;
-        g_.add(varma.sig());
+        this.varma = varma;
+        g.add(varma.sig());
         computeInitialCov();
 
     }
     
     public FastMatrix cov(int lag) {
         
-        if (lag >= covs_.size()) {
+        if (lag >= covs.size()) {
             compute(lag);
         }
-        return covs_.get(lag);
+        return covs.get(lag);
     }
     
     private void computeInitialCov(){
@@ -39,34 +40,34 @@ public class AutoCovarianceFunction {
 
     private void compute(int lag) {
         computeg(lag);
-        for (int i=covs_.size(); i<=lag; ++i){
+        for (int i=covs.size(); i<=lag; ++i){
             calcCov(i);
         }
     }
 
     private void computeg(int lag) {
-        int n=varma_.getDim(), p=varma_.getP(), q=varma_.getQ();
-        if (g_.size() > lag) {
+        int n=varma.getDim(), p=varma.getP(), q=varma.getQ();
+        if (g.size() > lag) {
             return;
         }
-        for (int i = g_.size(); i <= lag; ++i) {
+        for (int i = g.size(); i <= lag; ++i) {
             FastMatrix g = FastMatrix.square(n);
             if (i <= q) {
-                g = varma_.th(i).times(varma_.sig());
+                g = GeneralMatrix.AB(varma.th(i),varma.sig());
             }
             for (int j = 1; j <= Math.min(i, p); ++j) {
-                FastMatrix tmp = varma_.phi(j).times(g_.get(i-j));
+                FastMatrix tmp = GeneralMatrix.AB(varma.phi(j), this.g.get(i-j));
                 g.sub(tmp);
             }
-            g_.add(g);
+            this.g.add(g);
         }
     }
 
     private void calcCov(int k) {
-        int n=varma_.getDim(), p=varma_.getP(), q=varma_.getQ();
-        FastMatrix cov=g_.get(k).deepClone();
+        int n=varma.getDim(), p=varma.getP(), q=varma.getQ();
+        FastMatrix cov=g.get(k).deepClone();
         for (int i=1; i<=q; ++i){
-            cov.add(g_.get(k-i).times(varma_.th(k-i)));
+            cov.add(GeneralMatrix.AB(g.get(k-i), varma.th(k-i)));
         }
     }
 

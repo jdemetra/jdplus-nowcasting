@@ -16,7 +16,6 @@
  */
 package demetra.dfm;
 
-import demetra.math.matrices.Matrix;
 import jdplus.data.DataWindow;
 import demetra.dfm.internal.SsfDfm;
 import jdplus.math.matrices.FastMatrix;
@@ -33,31 +32,27 @@ import java.util.List;
  *
  * @author Jean Palate
  */
-
+@lombok.Value
+@lombok.Builder(builderClassName="Builder", toBuilder=true)
 public class DynamicFactorModel  {
 
-    private int nlx;
-    private VarDescriptor vdesc;
-    private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
-    private List<MeasurementDescriptor> mdesc = new ArrayList<>();
+    int nlags;
+    @lombok.NonNull
+    VarDescriptor varDescriptor;
+    ISsfInitialization.Type initialization;
+    @lombok.Singular
+    private List<MeasurementDescriptor> measurementDescriptors;
     private FastMatrix V0;
-
-    /**
-     * Creates a new dynamic factors model
-     *
-     * @param nlags The number of lags for each factors (in [t, t-c[) that has to be
-     * integrated in the model
-     * @param nf The number of factors
-     */
-    public DynamicFactorModel(int nlags) {
-        nlx = nlags;
+    
+    public static Builder builder(){
+        return new Builder().initialization(ISsfInitialization.Type.Unconditional);
     }
 
     public void rescaleVariances(double cvar) {
-        for (MeasurementDescriptor m : mdesc) {
+        for (MeasurementDescriptor m : measurementDescriptors) {
             m.rescaleVariance(cvar);
         }
-        vdesc.rescaleVariance(cvar);
+        varDescriptor.rescaleVariance(cvar);
         if (V0 != null) {
             V0.mul(cvar);
         }
@@ -71,35 +66,35 @@ public class DynamicFactorModel  {
      */
     public void normalize() {
         // scaling factors
-        int nl = vdesc.getLagsCount(), nf=vdesc.getVariablesCount();
+        int nl = varDescriptor.getNlags(), nf=varDescriptor.getNfactors();
         double[] w = new double[nf];
-        vdesc.getInnovationsVariance().diagonal().copyTo(w, 0);
+        varDescriptor.getInnovationsCovariance().diagonal().copyTo(w, 0);
         for (int i = 0; i < nf; ++i) {
             w[i] = Math.sqrt(w[i]);
         }
         if (V0 != null) {
             for (int i = 0; i < nf; ++i) {
                 for (int j = 0; j < nf; ++j) {
-                    V0.extract(i * nlx, nlx, j * nlx, nlx).mul(1 / (w[i] * w[j]));
+                    V0.extract(i * nlags, nlags, j * nlags, nlags).mul(1 / (w[i] * w[j]));
                 }
             }
         }
         // covar
         for (int i = 0; i < nf; ++i) {
             if (w[i] != 0) {
-                vdesc.getInnovationsVariance().set(i, i, 1);
+                varDescriptor.getInnovationsCovariance().set(i, i, 1);
                 for (int j = 0; j < i; ++j) {
                     if (w[j] != 0) {
-                        vdesc.getInnovationsVariance().mul(i, j, 1 / (w[i] * w[j]));
+                        varDescriptor.getInnovationsCovariance().mul(i, j, 1 / (w[i] * w[j]));
                     }
                 }
             }
         }
-        SymmetricMatrix.fromLower(vdesc.getInnovationsVariance());
+        SymmetricMatrix.fromLower(varDescriptor.getInnovationsCovariance());
         // varParams
         for (int i = 0; i < nf; ++i) {
             if (w[i] != 0) {
-                DataWindow range = vdesc.getVarMatrix().row(i).left();
+                DataWindow range = varDescriptor.getCoefficients().row(i).left();
                 for (int j = 0; j < nf; ++j) {
                     if (w[j] != 0 && i != j) {
                         range.next(nl).mul(w[j] / w[i]);
@@ -108,7 +103,7 @@ public class DynamicFactorModel  {
             }
         }
         // loadings
-        for (MeasurementDescriptor desc : mdesc) {
+        for (MeasurementDescriptor desc : measurementDescriptors) {
             for (int i = 0; i < nf; ++i) {
                 if (desc.isUsed(i)) {
                     desc.rescaleCoefficient(i, w[i]);
@@ -127,10 +122,10 @@ public class DynamicFactorModel  {
      * with the triangular transformation implied by Cholesky
      */
     public void lnormalize() {
-        int nf=vdesc.getVariablesCount(), nl=vdesc.getLagsCount();
-        if (vdesc.getInnovationsVariance().isIdentity())
+        int nf=varDescriptor.getNfactors(), nl=varDescriptor.getNlags();
+        if (varDescriptor.getInnovationsCovariance().isIdentity())
             return;
-        FastMatrix L = vdesc.getInnovationsVariance().deepClone();
+        FastMatrix L = varDescriptor.getInnovationsCovariance().deepClone();
         SymmetricMatrix.lcholesky(L);
         // L contains the Cholesky factor
 
@@ -138,7 +133,7 @@ public class DynamicFactorModel  {
         // y = C*f + e <-> y = (C*L)*L^-1*f+e
         // B = C*L
         // loadings
-        for (MeasurementDescriptor desc : mdesc) {
+        for (MeasurementDescriptor desc : measurementDescriptors) {
             double[] c = desc.getCoefficients();
             for (int i = 0; i < nf; ++i) {
                 double z = 0;
@@ -164,141 +159,87 @@ public class DynamicFactorModel  {
         // C=L^-1*A*L <-> LC=AL
         
         for (int i = 1; i <= nl; ++i) {
-            FastMatrix A = vdesc.getA(i);
+            FastMatrix A = varDescriptor.getA(i);
             // AL
-            LowerTriangularMatrix.lmul(L, A);
+            LowerTriangularMatrix.ML(L, A);
             // LC = (AL)
-            LowerTriangularMatrix.rsolve(L, A);
-            vdesc.setA(i, A);
+            LowerTriangularMatrix.solveLX(L, A);
+            varDescriptor.setA(i, A);
         }
-        vdesc.getInnovationsVariance().set(0);
-        vdesc.getInnovationsVariance().diagonal().set(1);
+        varDescriptor.getInnovationsCovariance().set(0);
+        varDescriptor.getInnovationsCovariance().diagonal().set(1);
         if (V0 != null) {
             // L^-1*V*L^-1' =W <-> L(WL')=V <-> LX=V, WL'=X or LW'=X'
-            FastMatrix V0 = FastMatrix.square(nf * nlx);
-            for (int i = 0; i < nlx; ++i) {
-                for (int j = 0; j <nlx; ++j) {
+            for (int i = 0; i < nlags; ++i) {
+                for (int j = 0; j <nlags; ++j) {
                     FastMatrix t = FastMatrix.square(nf);
                     for (int k = 0; k < nf; ++k) {
                         for (int l = 0; l < nf; ++l) {
-                            t.set(k, l, this.V0.get(k * nlx + i, l * nlx + j));
+                            t.set(k, l, this.V0.get(k * nlags + i, l * nlags + j));
                         }
                     }
-                    LowerTriangularMatrix.rsolve(L, t);
-                    LowerTriangularMatrix.rsolve(L, t.transpose());
+                    LowerTriangularMatrix.solveLX(L, t);
+                    LowerTriangularMatrix.solveLX(L, t.transpose());
                     for (int k = 0; k < nf; ++k) {
                         for (int l = 0; l < nf; ++l) {
-                            V0.set(k * nlx + i, l * nlx + j, t.get(k, l));
+                            V0.set(k * nlags + i, l * nlags + j, t.get(k, l));
                         }
                     }
                 }
             }
-            this.V0=V0;
         }
     }
 
-//    @Override
-//    public DynamicFactorModel clone() {
-//        try {
-//            DynamicFactorModel m = (DynamicFactorModel) super.clone();
-//            VarDescriptor td = new VarDescriptor(nf_, vdesc.nlags);
-//            td.innovationCovariance.copy(vdesc.covar);
-//            td.varParams.copy(vdesc.varParams);
-//            m.vdesc = td;
-//            m.mdesc = new ArrayList<>();
-//            for (MeasurementDescriptor md : mdesc) {
-//                m.mdesc.add(new MeasurementDescriptor(
-//                        md.type, md.coeff.clone(), md.var));
-//            }
-//            if (V0 != null) {
-//                m.V0 = V0.clone();
-//            }
-//            return m;
-//        } catch (CloneNotSupportedException ex) {
-//            throw new AssertionError();
-//        }
-//    }
-//
-    /**
-     * Copies the parameters of a given model in this object
-     *
-     * @param m The model being copied
-     * @return True if the models have the same structure and can be copied
-     * false otherwise. Models have the same structure means that they have: -
-     * same VAR structure (number of factors, number of lags) - same number of
-     * measurement equations
-     */
-    public boolean copy(DynamicFactorModel m) {
-        int nf=vdesc.getVariablesCount(), nl=vdesc.getLagsCount();
-        if (nf != m.vdesc.getVariablesCount()
-                || nl != m.vdesc.getLagsCount()
-                || mdesc.size() != m.mdesc.size()) {
-            return false;
-        }
-        vdesc.copy(m.vdesc);
-        for (int i = 0; i < mdesc.size(); ++i) {
-            MeasurementDescriptor s = m.mdesc.get(i),
-                    t = mdesc.get(i);
-            t.copy(s);
-        }
-        if (m.V0 != null) {
-            V0 = m.V0.deepClone();
-        } else {
-            V0 = null;
-        }
-        return true;
-    }
-
-//    /**
-//     * Compacts the factors of a given models
-//     *
-//     * @param from The first factor to merge
-//     * @param to The last factor (included) to merge
-//     * @return A new model is returned. It should be re-estimated.
-//     */
-//    public DynamicFactorModel compactFactors(int from, int to) {
-//        if (from < 0 || to < from || to >= nf_) {
-//            return null;
-//        }
-//        if (to == from) {
-//            return clone();
-//        }
-//        int nc = to - from;
-//        DynamicFactorModel m = new DynamicFactorModel(nlx, nf_ - nc);
-//        TransitionDescriptor td = new TransitionDescriptor(nf_ - nc, vdesc.nlags);
-//        m.vdesc = td;
-//        m.vdesc.covar.diagonal().set(1);
-//        for (MeasurementDescriptor md : mdesc) {
-//            double[] ncoeff = new double[nf_ - nc];
-//            for (int i = 0; i < from; ++i) {
-//                ncoeff[i] = md.coeff[i];
-//            }
-//            for (int i = to + 1; i < nf_; ++i) {
-//                ncoeff[i - nc] = md.coeff[i];
-//            }
-//            boolean used = false;
-//            for (int i = from; i <= to; ++i) {
-//                if (!Double.isNaN(md.coeff[i])) {
-//                    used = true;
-//                    break;
-//                }
-//            }
-//            if (!used) {
-//                ncoeff[from] = Double.NaN;
-//            }
-//            m.mdesc.add(new MeasurementDescriptor(
-//                    md.type, ncoeff, 1));
-//        }
-//        return m;
-//    }
-//
+////    /**
+////     * Compacts the factors of a given models
+////     *
+////     * @param from The first factor to merge
+////     * @param to The last factor (included) to merge
+////     * @return A new model is returned. It should be re-estimated.
+////     */
+////    public DynamicFactorModel compactFactors(int from, int to) {
+////        if (from < 0 || to < from || to >= nf_) {
+////            return null;
+////        }
+////        if (to == from) {
+////            return clone();
+////        }
+////        int nc = to - from;
+////        DynamicFactorModel m = new DynamicFactorModel(nlags, nf_ - nc);
+////        TransitionDescriptor td = new TransitionDescriptor(nf_ - nc, varDescriptor.nlags);
+////        m.varDescriptor = td;
+////        m.varDescriptor.covar.diagonal().set(1);
+////        for (MeasurementDescriptor md : measurementDescriptors) {
+////            double[] ncoeff = new double[nf_ - nc];
+////            for (int i = 0; i < from; ++i) {
+////                ncoeff[i] = md.coeff[i];
+////            }
+////            for (int i = to + 1; i < nf_; ++i) {
+////                ncoeff[i - nc] = md.coeff[i];
+////            }
+////            boolean used = false;
+////            for (int i = from; i <= to; ++i) {
+////                if (!Double.isNaN(md.coeff[i])) {
+////                    used = true;
+////                    break;
+////                }
+////            }
+////            if (!used) {
+////                ncoeff[from] = Double.NaN;
+////            }
+////            m.measurementDescriptors.add(new MeasurementDescriptor(
+////                    md.type, ncoeff, 1));
+////        }
+////        return m;
+////    }
+////
     /**
      * The number of lags for each factor
      *
      * @return
      */
     public int getBlockLength() {
-        return nlx;
+        return nlags;
     }
 
     /**
@@ -307,35 +248,38 @@ public class DynamicFactorModel  {
      * @return
      */
     public int getFactorsCount() {
-        return vdesc.getVariablesCount();
+        return varDescriptor.getNfactors();
     }
 
-    /**
-     * Changes the number of lags of each factor that is included in the model
-     *
-     * @param c The size of each block of factors (lags in [t, t-c[ belong to
-     * the model). c should larger or equal to the number of lags in the
-     * transition equation.
-     * @throws DfmException is thrown when the model is invalid (see above)
-     */
-    public void setBlockLength(int c) throws DfmException {
-        if (vdesc != null && c < vdesc.getLagsCount()) {
-            throw new DfmException(DfmException.INVALID_MODEL);
-        }
-        nlx = c;
-    }
+//    /**
+//     * Changes the number of lags of each factor that is included in the model
+//     *
+//     * @param c The size of each block of factors (lags in [t, t-c[ belong to
+//     * the model). c should larger or equal to the number of lags in the
+//     * transition equation.
+//     * @throws DfmException is thrown when the model is invalid (see above)
+//     */
+//    public void setBlockLength(int c) throws DfmException {
+//        if (varDescriptor != null && c < varDescriptor.getNlags()) {
+//            throw new DfmException(DfmException.INVALID_MODEL);
+//        }
+//        nlags = c;
+//    }
 
     /**
      * Sets a new descriptor for the transition equation (VAR model)
      *
      * @param desc The descriptor of the transition equation
+     * @return 
      * @throws DfmException is thrown when the model is invalid
      */
-    public void setTransition(VarDescriptor desc) throws DfmException {
-        if ( nlx < desc.getLagsCount()) {
+    public DynamicFactorModel withTransition(VarDescriptor desc) throws DfmException {
+        if ( nlags < desc.getNlags()) {
             throw new DfmException(DfmException.INVALID_MODEL);
         }
-        vdesc = desc;
+        return toBuilder()
+                .varDescriptor(desc)
+                .build();
     }
 
     /**
@@ -343,7 +287,7 @@ public class DynamicFactorModel  {
      * @return
      */
     public VarDescriptor getVarDescriptor() {
-        return vdesc;
+        return varDescriptor;
     }
 
     /**
@@ -351,19 +295,7 @@ public class DynamicFactorModel  {
      * @return
      */
     public List<MeasurementDescriptor> getMeasurements() {
-        return Collections.unmodifiableList(mdesc);
-    }
-
-    /**
-     *
-     * @param desc
-     */
-    public void addMeasurement(MeasurementDescriptor desc) {
-        mdesc.add(desc);
-    }
-
-    public void clearMeasurements() {
-        mdesc.clear();
+        return Collections.unmodifiableList(measurementDescriptors);
     }
 
     /**
@@ -371,7 +303,7 @@ public class DynamicFactorModel  {
      * @return
      */
     public IMultivariateSsf ssfRepresentation() {
-        return SsfDfm.of(vdesc, mdesc.toArray(new MeasurementDescriptor[mdesc.size()]), nlx, V0);
+        return SsfDfm.of(varDescriptor, measurementDescriptors.toArray(MeasurementDescriptor[]::new), nlags, V0);
     }
 
     /**
@@ -379,36 +311,23 @@ public class DynamicFactorModel  {
      * @return
      */
     public int getMeasurementsCount() {
-        return mdesc.size();
+        return measurementDescriptors.size();
     }
 
     /**
      *
      * @param init
+     * @return 
      */
-    public void setInitialization(ISsfInitialization.Type init) {
-        initialization = init;
-        if (initialization != ISsfInitialization.Type.UserDefined) {
-            V0 = null;
+    public DynamicFactorModel withInitialization(ISsfInitialization.Type init) {
+        Builder builder = toBuilder()
+                .initialization(init);
+        if (init != ISsfInitialization.Type.UserDefined) {
+            builder.V0(null);
         }
+        return builder.build();
     }
 
-    /**
-     *
-     * @return
-     */
-    public ISsfInitialization.Type getInitialization() {
-        return initialization;
-    }
-
-    /**
-     *
-     * @param v0
-     */
-    public void setInitialCovariance(FastMatrix v0) {
-        V0 = v0.deepClone();
-        initialization = ISsfInitialization.Type.UserDefined;
-    }
 
 //    /**
 //     *
@@ -440,8 +359,8 @@ public class DynamicFactorModel  {
 //    }
 //
     public void setDefault() {
-        vdesc.setDefault();
-        for (MeasurementDescriptor m : this.mdesc) {
+        varDescriptor.setDefault();
+        for (MeasurementDescriptor m : this.measurementDescriptors) {
             m.setDefault();
         }
     }
@@ -450,12 +369,12 @@ public class DynamicFactorModel  {
     public String toString() {
         StringBuilder builder = new StringBuilder();
         builder.append("Loadings").append("\r\n");
-        for (MeasurementDescriptor m : mdesc) {
+        for (MeasurementDescriptor m : measurementDescriptors) {
             builder.append(m).append("\r\n");
         }
         builder.append("VAR").append("\r\n");
-        builder.append(vdesc.getVarMatrix());
-        builder.append(vdesc.getInnovationsVariance());
+        builder.append(varDescriptor.getCoefficients());
+        builder.append(varDescriptor.getInnovationsCovariance());
         return builder.toString();
     }
 

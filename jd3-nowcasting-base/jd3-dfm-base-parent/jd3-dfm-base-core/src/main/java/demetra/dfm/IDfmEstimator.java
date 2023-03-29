@@ -16,17 +16,18 @@
  */
 package demetra.dfm;
 
-import jdplus.data.DataBlock;
-import jdplus.math.matrices.FastMatrix;
+import demetra.data.DoubleSeq;
+import demetra.dfm.timeseries.TsInformationSet;
+import demetra.math.matrices.Matrix;
 
 
 /**
  *
  * @author Jean Palate
  */
-//public interface IDfmEstimator {
-//    boolean estimate(DynamicFactorModel dfm, TsInformationSet input);
-//
-//    Matrix getHessian();
-//    DataBlock getGradient();
-//}
+public interface IDfmEstimator {
+    boolean estimate(DynamicFactorModel dfm, TsInformationSet input);
+
+    Matrix getHessian();
+    DoubleSeq getGradient();
+}

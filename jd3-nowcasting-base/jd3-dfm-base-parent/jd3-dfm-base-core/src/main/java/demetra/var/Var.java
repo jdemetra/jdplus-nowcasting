@@ -31,13 +31,12 @@ import jdplus.math.linearsystem.LinearSystemSolver;
 public class Var {
 
     public FastMatrix unconditionalInitialization(VarDescriptor desc) {
-        int nl = desc.getLagsCount();
-        int nvars = desc.getVariablesCount();
+        int nl = desc.getNlags(), nvars = desc.getNfactors();
         // We have to solve the steady state equation:
         // V = T V T' + Q
         // We consider the nlag*nb, nlag*nb sub-system
-        FastMatrix v = desc.getInnovationsVariance();
-        FastMatrix t = desc.getVarMatrix();
+        FastMatrix v = desc.getInnovationsCovariance();
+        FastMatrix t = desc.getCoefficients();
         int n = nvars * nl;
         FastMatrix cov = FastMatrix.square(n);
         int np = (n * (n + 1)) / 2;
@@ -81,36 +80,10 @@ public class Var {
         }
         SymmetricMatrix.fromLower(cov);
         return cov;
-//            Matrix fullCov = new Matrix(getStateDim(), getStateDim());
-//            for (int r = 0; r < nf_; ++r) {
-//                for (int c = 0; c < nf_; ++c) {
-//                    fullCov.subMatrix(r * c_, r * c_ + nl, c * c_, c * c_ + nl).copy(cov.subMatrix(r * nl, (r + 1) * nl, c * nl, (c + 1) * nl));
-//                }
-//            }
-//            for (int i = nl; i < c_; ++i) {
-//                TVT(0, fullCov.subMatrix());
-//                addV(0, fullCov.subMatrix());
-//            }
-//            return fullCov;
     }
 
     private static int pos(int r, int c, int n) {
         return r + c * (2 * n - c - 1) / 2;
     }
-    
-    public MultivariateSsf of(VarDescriptor desc) {
-        VarDynamics dynamics = VarDynamics.of(desc);
-        VarInitialization initialization = new VarInitialization(desc.getVariablesCount() * desc.getLagsCount(), null);
-        ISsfMeasurements measurements = new VarMeasurements(desc.getVariablesCount(), desc.getLagsCount());
-        return new MultivariateSsf(initialization, dynamics, measurements);
-    }
-
-    public static MultivariateSsf of(VarDescriptor desc, int nlags) {
-        int nl = Math.max(nlags, desc.getLagsCount());
-        VarDynamics dynamics = VarDynamics.of(desc);
-        VarInitialization initialization = new VarInitialization(desc.getVariablesCount() * nl, null);
-        ISsfMeasurements measurements = new VarMeasurements(desc.getVariablesCount(), desc.getLagsCount());
-        return new MultivariateSsf(initialization, dynamics, measurements);
-    }
-
-}
+   
+ }

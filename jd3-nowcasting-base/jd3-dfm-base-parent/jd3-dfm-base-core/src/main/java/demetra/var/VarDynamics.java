@@ -34,28 +34,21 @@ public class VarDynamics implements ISsfDynamics {
     private FastMatrix L;
 
     public static VarDynamics of(final VarDescriptor desc) {
-        int nlx = desc.getVarMatrix().getColumnsCount();
-        if (nlx % desc.getLagsCount() != 0) {
-            return null;
-        }
-        nlx /= desc.getVariablesCount();
-        if (nlx < desc.getLagsCount()) {
-            return null;
-        }
-        return new VarDynamics(desc, nlx);
+        return new VarDynamics(desc, desc.getNlags());
     }
 
     public static VarDynamics of(final VarDescriptor desc, final int nlags) {
-        int nl = Math.max(nlags, desc.getLagsCount());
+        int nl = Math.max(nlags, desc.getNlags());
         return new VarDynamics(desc, nl);
     }
 
     private VarDynamics(final VarDescriptor desc, final int nlx) {
-        nvars = desc.getVariablesCount();
-        nl = desc.getLagsCount();
+        nvars = desc.getNfactors();
+        nl = desc.getNlags();
         this.nlx = nlx;
-        V=desc.getInnovationsVariance();
-        T = desc.getVarMatrix();
+        
+        V=desc.getInnovationsCovariance();
+        T = desc.getCoefficients();
         ttmp = DataBlock.make(nvars);
         xtmp = DataBlock.make(nvars * nl);
     }
@@ -84,7 +77,7 @@ public class VarDynamics implements ISsfDynamics {
 
     @Override
     public void V(int pos, FastMatrix qm) {
-        qm.topLeft(nvars, nvars).copy(V);
+        qm.topLeft(nvars, nvars).get().copy(V);
     }
 
     @Override
@@ -94,25 +87,25 @@ public class VarDynamics implements ISsfDynamics {
 
     @Override
     public void S(int pos, FastMatrix sm) {
-        sm.topLeft(nvars, nvars).copy(L());
+        sm.topLeft(nvars, nvars).get().copy(L());
     }
 
     @Override
     public void addSU(int pos, DataBlock x, DataBlock u) {
         DataBlock v = u.deepClone();
-        LowerTriangularMatrix.rmul(L(), v);
+        LowerTriangularMatrix.Lx(L(), v);
         x.range(0, nvars).add(v);
     }
 
     @Override
     public void XS(int pos, DataBlock x, DataBlock xs) {
         xs.copy(x.range(0, nvars));
-        LowerTriangularMatrix.lmul(L(), xs);
+        LowerTriangularMatrix.xL(L(), xs);
     }
 
     @Override
     public void T(int pos, FastMatrix tr) {
-        tr.topLeft(nvars, nvars * nl).copy(T);
+        tr.topLeft(nvars, nvars * nl).get().copy(T);
         tr.subDiagonal(-nvars).set(1);
     }
 
@@ -140,7 +133,7 @@ public class VarDynamics implements ISsfDynamics {
 
     @Override
     public void addV(final int pos, final FastMatrix v) {
-        v.topLeft(nvars, nvars).add(V);
+        v.topLeft(nvars, nvars).get().add(V);
     }
 
     @Override
