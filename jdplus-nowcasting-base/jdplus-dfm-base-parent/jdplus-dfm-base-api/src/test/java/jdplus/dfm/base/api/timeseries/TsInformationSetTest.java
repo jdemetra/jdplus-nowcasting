@@ -16,6 +16,7 @@
  */
 package jdplus.dfm.base.api.timeseries;
 
+import tck.demetra.data.Data;
 import java.util.ArrayList;
 import java.util.List;
 import jdplus.toolkit.base.api.data.AggregationType;
@@ -26,7 +27,6 @@ import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.api.timeseries.TsUnit;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import tck.demetra.data.Data;
 
 /**
  *

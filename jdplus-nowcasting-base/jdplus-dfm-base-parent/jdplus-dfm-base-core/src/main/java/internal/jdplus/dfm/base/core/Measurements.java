@@ -32,7 +32,7 @@ import jdplus.toolkit.base.core.ssf.multivariate.ISsfMeasurements;
  *
  * @author Jean Palate
  */
-class Measurements implements ISsfMeasurements {
+public class Measurements implements ISsfMeasurements {
 
     static Measurements of(int nf, int c, MeasurementDescriptor... mdesc) {
         return new Measurements(mdesc, nf, c);
@@ -67,7 +67,7 @@ class Measurements implements ISsfMeasurements {
 
         DataBlock diagonal = h.diagonal();
         for (int i = 0; i < mdesc.length; ++i) {
-            diagonal.set(i, mdesc[i].getVar());
+            diagonal.set(i, mdesc[i].getVariance());
         }
         return h;
     }
@@ -77,7 +77,7 @@ class Measurements implements ISsfMeasurements {
 
         DataBlock diagonal = r.diagonal();
         for (int i = 0; i < mdesc.length; ++i) {
-            diagonal.set(i, Math.sqrt(mdesc[i].getVar()));
+            diagonal.set(i, Math.sqrt(mdesc[i].getVariance()));
         }
         return r;
     }
@@ -111,7 +111,7 @@ class Measurements implements ISsfMeasurements {
 
     @Override
     public ISsfErrors errors() {
-        return MeasurementsError.of(DoubleSeq.onMapping(mdesc.length, i -> mdesc[i].getVar()));
+        return MeasurementsError.of(DoubleSeq.onMapping(mdesc.length, i -> mdesc[i].getVariance()));
     }
 
     class Loading implements ISsfLoading {

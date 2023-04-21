@@ -16,8 +16,10 @@
  */
 package jdplus.dfm.base.core;
 
+import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.math.Complex;
+import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.math.functions.ParamValidation;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
@@ -26,7 +28,6 @@ import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
 import jdplus.toolkit.base.core.math.matrices.decomposition.EigenSystem;
 import jdplus.toolkit.base.core.math.matrices.decomposition.IEigenSystem;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
-
 
 /**
  *
@@ -127,8 +128,8 @@ public class DfmMapping implements IDfmMapping {
             int iv = -1;
             double v = 0;
             for (MeasurementDescriptor desc : template.getMeasurements()) {
-                if (desc.getVar() > v) {
-                    v = desc.getVar();
+                if (desc.getVariance() > v) {
+                    v = desc.getVariance();
                     iv = m;
                 }
                 for (int i = 0; i < nb; ++i) {
@@ -208,35 +209,42 @@ public class DfmMapping implements IDfmMapping {
         int i0 = 0, j0 = 0;
         if (l != null) {
             int n = 0;
-//            for (MeasurementDescriptor desc : m.getMeasurements()) {
-//                for (int k = 0; k < nb; ++k) {
-//                    if (!Double.isNaN(desc.coeff[k])) {
-//                        if (mmax == null || n != mmax[k]) {
-//                            desc.coeff[k] = l.get(i0++);
-//                        } else {
-//                            desc.coeff[k] = fmax[k];
-//                        }
-//                    }
-//                }
-//                if (n == ivmax) {
-//                    desc.var = vmax;
-//                } else {
-//                    double x = mv.get(j0++);
-//                    desc.var = x * x;
-//                }
-//                ++n;
-//            }
-//        }
-//        DoubleSeq tv = tvars(p), vp = vparams(p);
-//        if (tv != null) {
-//            FastMatrix v = m.getTransition().covar;
-//            FastMatrix t = m.getTransition().varParams;
-//            mtvar(v, tv);
-//            vp.copyTo(t.internalStorage(), 0);
-//        }
-//        return m.ssfRepresentation();
+            builder.clearMeasurements();
+            for (MeasurementDescriptor desc : template.getMeasurements()) {
+                double[] c = desc.getCoefficient().toArray();
+                for (int k = 0; k < nb; ++k) {
+                    if (!Double.isNaN(c[k])) {
+                        if (mmax == null || n != mmax[k]) {
+                            c[k] = l.get(i0++);
+                        } else {
+                            c[k] = fmax[k];
+                        }
+                    }
+                }
+                MeasurementDescriptor.Builder dbuilder = desc.toBuilder();
+                dbuilder.coefficient(DoubleSeq.of(c));
+                if (n == ivmax) {
+                    dbuilder.variance(vmax);
+                } else {
+                    double x = mv.get(j0++);
+                    dbuilder.variance(x * x);
+                }
+                ++n;
+            }
         }
-        return null;
+        DoubleSeq tv = tvars(p), vp = vparams(p);
+        if (tv != null) {
+            TransitionDescriptor var = template.getVar();
+            FastMatrix v=FastMatrix.of(var.getInnovationsVariance());
+            FastMatrix t = FastMatrix.of(var.getCoefficients());
+            mtvar(v, tv);
+            vp.copyTo(t.getStorage(), 0);
+            builder.var(var.toBuilder()
+                    .coefficients(t)
+                    .innovationsVariance(v)
+                    .buildWithoutValidation());
+        }
+        return builder.build().ssfRepresentation();
     }
 
 //    public DoubleSeq map(IMultivariateSsf mssf) {
@@ -244,42 +252,41 @@ public class DfmMapping implements IDfmMapping {
 //        DynamicFactorModel m = ssf.getModel();
 //        return map(m);
 //    }
-
     @Override
     public DoubleSeq map(DynamicFactorModel m) {
         // copy to p
         DataBlock p = DataBlock.make(np);
         DataBlock l = loadings(p);
         DataBlock mv = mvars(p);
-//        int i0 = 0, j0 = 0;
-//        if (l != null) {
-//            int n = 0;
-//            for (MeasurementDescriptor desc : m.getMeasurements()) {
-//                for (int k = 0; k < nb; ++k) {
-//                    if (!Double.isNaN(desc.coeff[k]) && (mmax == null || n != mmax[k])) {
-//                        l.set(i0++, desc.coeff[k]);
-//                    }
-//                }
-//                if (n != ivmax) {
-//                    mv.set(j0++, Math.sqrt(desc.var));
-//                }
-//                ++n;
-//            }
-//        }
-//        DataBlock tv = tvars(p), vp = vparams(p);
-//        if (tv != null) {
-//            FastMatrix v = m.getTransition().covar.clone();
-//            SymmetricMatrix.lcholesky(v);
-//            i0 = 0;
-//            for (int i = 0; i < nb; ++i) {
-//                tv.extract(i0, i + 1).copy(v.row(i).range(0, i + 1));
-//                i0 += i + 1;
-//            }
-////            tv.copy(m.getTransition().covar.diagonal());
-////            tv.sqrt();
-//            FastMatrix t = m.getTransition().varParams;
-//            vp.copyFrom(t.internalStorage(), 0);
-//        }
+        int i0 = 0, j0 = 0;
+        if (l != null) {
+            int n = 0;
+            for (MeasurementDescriptor desc : m.getMeasurements()) {
+                for (int k = 0; k < nb; ++k) {
+                    if (!Double.isNaN(desc.getCoefficient(k)) && (mmax == null || n != mmax[k])) {
+                        l.set(i0++, desc.getCoefficient(k));
+                    }
+                }
+                if (n != ivmax) {
+                    mv.set(j0++, Math.sqrt(desc.getVariance()));
+                }
+                ++n;
+            }
+        }
+        DataBlock tv = tvars(p), vp = vparams(p);
+        if (tv != null) {
+            FastMatrix v = FastMatrix.of(m.getVarDescriptor().getInnovationsVariance());
+            SymmetricMatrix.lcholesky(v);
+            i0 = 0;
+            for (int i = 0; i < nb; ++i) {
+                tv.extract(i0, i + 1).copy(v.row(i).range(0, i + 1));
+                i0 += i + 1;
+            }
+//            tv.copy(m.getTransition().covar.diagonal());
+//            tv.sqrt();
+            Matrix t = m.getVarDescriptor().getCoefficients();
+            vp.copyFrom(t.toArray(), 0);
+        }
         return p;
     }
 

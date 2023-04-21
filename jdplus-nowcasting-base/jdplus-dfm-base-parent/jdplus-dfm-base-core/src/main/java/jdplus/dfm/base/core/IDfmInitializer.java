@@ -25,5 +25,5 @@ import jdplus.dfm.base.api.timeseries.TsInformationSet;
  * @author Jean Palate
  */
 public interface IDfmInitializer {
-    boolean initialize(DynamicFactorModel dfm, TsInformationSet data);
+    DynamicFactorModel initialize(DynamicFactorModel dfm, TsInformationSet data);
 }

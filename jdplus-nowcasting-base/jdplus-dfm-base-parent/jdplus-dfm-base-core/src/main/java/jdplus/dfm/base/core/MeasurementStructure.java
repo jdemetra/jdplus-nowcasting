@@ -16,20 +16,20 @@
  */
 package jdplus.dfm.base.core;
 
-import java.util.Arrays;
-import java.util.Objects;
 import jdplus.dfm.base.api.MeasurementType;
 
 /**
  *
  * @author Jean Palate
  */
-public class MeasurementStructure implements Comparable<MeasurementStructure> {
+
+@lombok.Value
+class MeasurementStructure implements Comparable<MeasurementStructure> {
 
     public final MeasurementType type;
     public final boolean[] used;
 
-    public MeasurementStructure(final MeasurementType type, final boolean[] used) {
+    MeasurementStructure(final MeasurementType type, final boolean[] used) {
         this.type = type;
         this.used = used;
     }
@@ -69,23 +69,5 @@ public class MeasurementStructure implements Comparable<MeasurementStructure> {
         }
         builder.append(']');
         return builder.toString();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o instanceof MeasurementStructure) {
-            MeasurementStructure m = (MeasurementStructure) o;
-            return type == m.type && Arrays.equals(used, m.used);
-        } else {
-            return false;
-        }
-    }
-
-    @Override
-    public int hashCode() {
-        int hash = 5;
-        hash = 37 * hash + Objects.hashCode(this.type);
-        hash = 37 * hash + Arrays.hashCode(this.used);
-        return hash;
     }
 }

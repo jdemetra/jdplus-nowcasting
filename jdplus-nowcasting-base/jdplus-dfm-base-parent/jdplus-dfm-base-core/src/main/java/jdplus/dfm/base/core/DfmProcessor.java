@@ -19,33 +19,34 @@ package jdplus.dfm.base.core;
 import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.StateStorage;
+import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateFilteringInformation;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateOrdinarySmoother;
-
-
+import jdplus.toolkit.base.core.ssf.multivariate.SsfMatrix;
 
 /**
  *
  * @author Jean Palate
  */
-public class DfmProcessor implements IDfmProcessor {
+public class DfmProcessor  {
 
-    private StateStorage srslts_;
-    private MultivariateFilteringInformation frslts_;
-    private boolean bvar_;
+    private StateStorage smoothingResults;
+    private MultivariateFilteringInformation filteringResults;
+    private boolean calcVariance;
 
-    private void clear() {
-        srslts_ = null;
-        frslts_ = null;
+    public void clear() {
+        smoothingResults = null;
+        filteringResults = null;
     }
-    
-    public boolean isCalcVariance(){
-        return bvar_;
+
+    public boolean isCalcVariance() {
+        return calcVariance;
     }
-    
-    public void setCalcVariance(boolean bvar){
-        bvar_=bvar;
+
+    public void setCalcVariance(boolean bvar) {
+        calcVariance = bvar;
     }
 
     /**
@@ -53,33 +54,35 @@ public class DfmProcessor implements IDfmProcessor {
      *
      * @return The Smoothing results. May by null.
      */
-    @Override
     public StateStorage getSmoothingResults() {
-        return srslts_;
+        return smoothingResults;
     }
 
-    @Override
     public MultivariateFilteringInformation getFilteringResults() {
-        return frslts_;
+        return filteringResults;
     }
 
-    @Override
     public boolean process(DynamicFactorModel model, TsInformationSet input) {
+        Matrix M = input.generateMatrix(null);
+        if (M.getColumnsCount() != model.getMeasurementsCount()) {
+            throw new DfmException(DfmException.INCOMPATIBLE_DATA);
+        }
         try {
             clear();
-            Matrix M = input.generateMatrix(null);
-            if (M.getColumnsCount() != model.getMeasurementsCount()) {
-                throw new DfmException(DfmException.INCOMPATIBLE_DATA);
+            IMultivariateSsf ssf = model.ssfRepresentation();
+            MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
+                    .calcVariance(calcVariance)
+                    .build();
+
+            if (smoother.process(new SsfMatrix(FastMatrix.of(M)))) {
+                smoothingResults = smoother.getSmoothingResults();
+                filteringResults = smoother.getFilteringResults();
+                return true;
+            } else {
+                return false;
             }
-//            MultivariateOrdinarySmoother smoother = new MultivariateOrdinarySmoother();
-//            srslts_ = new MultivariateSmoothingResults();
-//            smoother.setCalcVariance(bvar_);
-//            IMultivariateSsf ssf = model.ssfRepresentation();
-//            smoother.process(ssf, new SsfMatrix(M), srslts_);
-//            frslts_ = smoother.getFilteringResults();
-            return true;
-        } catch (Exception err) {
-            srslts_ = null;
+        } catch (RuntimeException err) {
+            smoothingResults = null;
             return false;
         }
     }

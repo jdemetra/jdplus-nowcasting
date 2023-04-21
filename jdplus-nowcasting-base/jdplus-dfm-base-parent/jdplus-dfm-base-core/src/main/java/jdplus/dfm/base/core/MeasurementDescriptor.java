@@ -17,7 +17,7 @@
 package jdplus.dfm.base.core;
 
 import static jdplus.dfm.base.core.IDfmMeasurement.getMeasurementType;
-import static jdplus.dfm.base.core.IDfmMeasurement.measurement;
+import jdplus.toolkit.base.api.data.DoubleSeq;
 
 
 
@@ -25,6 +25,8 @@ import static jdplus.dfm.base.core.IDfmMeasurement.measurement;
  *
  * @author Jean Palate
  */
+@lombok.Builder(builderClassName="Builder", toBuilder=true)
+@lombok.Value
 public class MeasurementDescriptor {
 
     public static final double C_DEF = .2;
@@ -33,139 +35,64 @@ public class MeasurementDescriptor {
      * Type of the measurement equation
      */
     private final IDfmMeasurement type;
-
-    private final double[] coeff;
+    /**
+     * Coefficients
+     */
+    private final DoubleSeq coefficient;
     /**
      * Variance of the measurement equation (>=0)
      */
-    private double var;
+    private double variance;
 
-    /**
-     * Creates a new measurement descriptor
-     *
-     * @param type Type of the measurement equation
-     * @param coeff Coefficients (1 by factor). Unused factors are identified by
-     * a "Double.NaN" coefficient.
-     * @param var Variance of the measurement equation (>=0)
-     */
-    public MeasurementDescriptor(final IDfmMeasurement type,
-            final double[] coeff, final double var) {
-        this.type = type;
-        this.coeff = coeff.clone();
-        this.var = var;
+    public MeasurementDescriptor rescaleVariance(double c) {
+        if (c == 1)
+            return this;
+        return new MeasurementDescriptor(type, coefficient, c*variance);
     }
 
-    // WHY DO WE NEED THIS CONSTRUCTOR?
-    public MeasurementDescriptor(final MeasurementStructure structure, final double var) {
-        this.type = measurement(structure.type);
-        this.coeff = new double[structure.used.length];
-        for (int i = 0; i < coeff.length; ++i) {
-            if (!structure.used[i]) {
-                coeff[i] = Double.NaN;
-            } else {
-                coeff[i] = C_DEF;
-            }
-        }
-        this.var = var;
-    }
-
-    public void seDefaultCoefficients() {
-        for (int i = 0; i < coeff.length; ++i) {
-            if (isUsed(i)) {
-                coeff[i] = C_DEF;
-            }
-        }
-    }
-
-    public final void setDefault() {
-        for (int i = 0; i < coeff.length; ++i) {
-            if (isUsed(i)) {
-                coeff[i] = C_DEF;
-            }
-        }
-        this.var = 1;
-    }
-
-    public void rescaleVariance(double c) {
-        var *= c;
-    }
-
-    public void setVar(double var) {
-        this.var = var;
-    }
-
-    public double getVar() {
-        return var;
+    public MeasurementDescriptor withVariance(double var) {
+        if (this.variance == var)
+            return this;
+        return new MeasurementDescriptor(type, coefficient, var);
     }
 
     public double getCoefficient(int pos) {
-        return coeff[pos];
-    }
-
-    public void setCoefficient(int pos, double c) {
-        coeff[pos] = c;
-    }
-
-    public void rescaleCoefficient(int pos, double c) {
-        coeff[pos] *= c;
-    }
-
-    public IDfmMeasurement getType() {
-        return type;
+        return coefficient.get(pos);
     }
 
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < coeff.length; ++i) {
-            if (Double.isNaN(coeff[i])) {
+        for (int i = 0; i < coefficient.length(); ++i) {
+            if (Double.isNaN(coefficient.get(i))) {
                 builder.append('.');
             } else {
-                builder.append(coeff[i]);
+                builder.append(coefficient.get(i));
             }
             builder.append('\t');
         }
-        builder.append(var);
+        builder.append(variance);
         return builder.toString();
     }
 
     public boolean isUsed(int fac) {
-        return !Double.isNaN(coeff[fac]);
-    }
-
-    public void unused(int fac) {
-        coeff[fac] = Double.NaN;
+        return !Double.isNaN(coefficient.get(fac));
     }
 
     public boolean[] getUsedFactors() {
-        boolean[] used = new boolean[coeff.length]; // DAVID: I THINK THIS LINE SHOULD BE COMMENTED (OTHERWISE IT CREATES A NEW USED)
+        boolean[] used = new boolean[coefficient.length()]; // DAVID: I THINK THIS LINE SHOULD BE COMMENTED (OTHERWISE IT CREATES A NEW USED)
         for (int i = 0; i < used.length; ++i) {
-            used[i] = !Double.isNaN(coeff[i]);
+            used[i] = !Double.isNaN(coefficient.get(i));
         }
         return used;
     }
 
     public int getUsedFactorsCount() {
-        int n = 0;
-        for (int i = 0; i < coeff.length; ++i) {
-            if (!Double.isNaN(coeff[i])) {
-                ++n;
-            }
-        }
-        return n;
+        
+        return coefficient.count(x->!Double.isNaN(x));
     }
 
-    public MeasurementStructure getStructure() {
+    MeasurementStructure getStructure() {
         return new MeasurementStructure(getMeasurementType(type), getUsedFactors());
     }
-
-    public double[] getCoefficients() {
-        return coeff.clone();
-    }
-
-    public void copy(MeasurementDescriptor s) {
-            System.arraycopy(s.coeff, 0, coeff, 0, s.coeff.length);
-            var = s.var;
-    }
-
 }

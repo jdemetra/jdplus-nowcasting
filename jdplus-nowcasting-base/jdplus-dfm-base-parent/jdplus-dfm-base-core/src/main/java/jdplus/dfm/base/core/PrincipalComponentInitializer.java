@@ -17,7 +17,9 @@
 package jdplus.dfm.base.core;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import jdplus.dfm.base.api.PrincipalComponentSpec;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.var.VarDescriptor;
@@ -76,28 +78,30 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
     }
 
     @Override
-    public boolean initialize(DynamicFactorModel model, TsInformationSet input) {
+    public DynamicFactorModel initialize(DynamicFactorModel model, TsInformationSet input) {
         clear();
         // we generare the matrix corresponding to the input.
         // missing values are raughly interpolated
         if (!computeMatrix(input)) {
-            return false;
+            return model;
         }
         // computation of the principal components on the transformed interpolated series
         // Transformations are driven by the loadings of the model
+
         if (!computePrincipalComponents(model)) {
-            return false;
+            return model;
         }
-        if (!computeVar(model)) {
-            return false;
+        TransitionDescriptor var = computeVar(model);
+        if (var == null) {
+            return model;
         }
-        if (!computeLoadings(model)) {
-            return false;
-        }
-//        if (model.isValid()) {
-//            model.copy(nmodel);
-//        }
-        return true;
+        List<MeasurementDescriptor> ndescs = computeLoadings(model);
+        DynamicFactorModel nmodel = model.toBuilder()
+                .clearMeasurements()
+                .measurements(ndescs)
+                .var(var)
+                .build();
+        return nmodel;
     }
 
     public Matrix getData() {
@@ -207,8 +211,8 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
         return s;
     }
 
-    private boolean computeVar(DynamicFactorModel model) {
-        VarDescriptor var = model.getVarDescriptor();
+    private TransitionDescriptor computeVar(DynamicFactorModel model) {
+        TransitionDescriptor var = model.getVar();
         int nl = var.getNlags(), nb = model.getFactorsCount();
         DoubleSeq[] f = new DoubleSeq[nb];
         DoubleSeq[] e = new DoubleSeq[nb];
@@ -225,44 +229,49 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
         for (int j = 0; j < M.getColumnsCount(); ++j) {
             regmodel.addX(M.column(j));
         }
+        FastMatrix C = FastMatrix.make(nb, nb*nl);
         for (int i = 0; i < nb; ++i) {
             regmodel.y(f[i]);
             try {
                 LeastSquaresResults ols = Ols.compute(regmodel.build());
-                var.getCoefficients().row(i).copy(ols.getLikelihood().coefficients());
+                C.row(i).copy(ols.getLikelihood().coefficients());
                 e[i] = ols.residuals();
             } catch (EcoException ex) {
-                return false;
+                return null;
             }
-
         }
+        FastMatrix V = FastMatrix.of(var.getInnovationsVariance());
 
         for (int i = 0; i < nb; ++i) {
             for (int j = 0; j <= i; ++j) {
-                var.getInnovationsCovariance().set(i, j, AutoCovariances.covarianceWithZeroMean(e[i], e[j]));
+                V.set(i, j, AutoCovariances.covarianceWithZeroMean(e[i], e[j]));
             }
         }
-        SymmetricMatrix.fromLower(var.getInnovationsCovariance());
-        return true;
+        SymmetricMatrix.fromLower(V);
+        return var.toBuilder()
+                .coefficients(C)
+                .innovationsVariance(V)
+                .buildWithoutValidation();
     }
 
-    private boolean computeLoadings(DynamicFactorModel model) {
+    private List<MeasurementDescriptor> computeLoadings(DynamicFactorModel model) {
         // creates the matrix of factors
         int nb = model.getFactorsCount(), blen = model.getBlockLength();
         FastMatrix M = FastMatrix.make(data.getRowsCount() - (blen - 1), nb * blen);
-        int c = 0;
-        for (int i = 0; i < nb; ++i) {
+        for (int i = 0, c = 0; i < nb; ++i) {
             DataBlock cur = pc[i].getFactor(0);
             for (int j = 0; j < blen; ++j) {
                 M.column(c++).copy(cur.drop(blen - 1 - j, j));
             }
         }
         int v = 0;
+        List<MeasurementDescriptor> ndescs = new ArrayList<>();
         for (MeasurementDescriptor desc : model.getMeasurements()) {
             DataBlock y = datac.column(v++).drop(blen - 1, 0);
             if (y.isZero(Constants.getEpsilon())) {
-                desc.setVar(1);
+                ndescs.add(desc.withVariance(1));
             } else {
+                MeasurementDescriptor.Builder builder = desc.toBuilder();
                 LinearModel.Builder regmodel = LinearModel.builder();
                 regmodel.y(y);
                 for (int j = 0; j < nb; ++j) {
@@ -277,19 +286,22 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
                 }
                 try {
                     LeastSquaresResults ols = Ols.compute(regmodel.build());
-                    DoubleSeq b = ols.getCoefficients();
+                    double[] b = ols.getCoefficients().toArray();
+                    double[] c = desc.getCoefficient().toArray();
                     for (int i = 0, j = 0; j < nb; ++j) {
-                        if (!Double.isNaN(desc.getCoefficient(j))) {
-                            desc.setCoefficient(j, b.get(i++));
+                        if (!Double.isNaN(c[j])) {
+                            c[j] = b[i++];
                         }
                     }
-                    desc.setVar(ols.getErrorMeanSquares());
+                    builder.coefficient(DoubleSeq.of(c))
+                            .variance(ols.getErrorMeanSquares());
                 } catch (EcoException ex) {
-                    desc.setVar(1);
+                    builder.variance(1);
                 }
+                ndescs.add(builder.build());
             }
         }
-        return true;
+        return ndescs;
     }
 
     private TsDomain searchDomain(TsInformationSet input) {

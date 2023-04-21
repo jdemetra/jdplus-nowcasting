@@ -17,10 +17,12 @@
 package internal.jdplus.dfm.base.core;
 
 import jdplus.dfm.base.core.MeasurementDescriptor;
+import jdplus.dfm.base.core.TransitionDescriptor;
 import jdplus.dfm.base.core.var.VarDescriptor;
-import jdplus.toolkit.base.core.math.matrices.FastMatrix;
+import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateSsf;
-
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  *
@@ -29,21 +31,39 @@ import jdplus.toolkit.base.core.ssf.multivariate.MultivariateSsf;
 @lombok.experimental.UtilityClass
 public class SsfDfm {
 
-    public MultivariateSsf of(VarDescriptor vdesc, MeasurementDescriptor[] mdesc, FastMatrix v0) {
-        int nlx = vdesc.getNlags();
+    private int extendedLags(int nlags, MeasurementDescriptor[] mdesc) {
+        int nlx = nlags;
         for (int i = 0; i < mdesc.length; ++i) {
             int n = mdesc[i].getType().getLength();
             if (nlx < n) {
                 nlx = n;
             }
         }
-        return of(vdesc, mdesc, nlx, v0);
+        return nlx;
     }
 
-    public MultivariateSsf of(VarDescriptor vdesc, MeasurementDescriptor[] mdesc, int nlx, FastMatrix v0) {
+    public MultivariateSsf unconditionalSsf(TransitionDescriptor vdesc, MeasurementDescriptor[] mdesc, int extendedLags) {
+        int nlx = extendedLags(Math.max(extendedLags, vdesc.getNlags()), mdesc);
         int nf = vdesc.getNfactors();
-        Dynamics dyn = Dynamics.of(vdesc.getCoefficients(), vdesc.getInnovationsCovariance(), nlx);
-        Initialization initialization = new Initialization(nf * nlx, v0 == null ? Initialization.unconditional(dyn) : v0);
+        Dynamics dyn = Dynamics.of(vdesc.getCoefficients(), vdesc.getInnovationsVariance(), nlx);
+        Initialization initialization = Initialization.unconditional(dyn);
+        Measurements m = Measurements.of(nf, nlx, mdesc);
+        return new MultivariateSsf(initialization, dyn, m);
+    }
+
+    public MultivariateSsf userSsf(TransitionDescriptor vdesc, MeasurementDescriptor[] mdesc, DoubleSeq a0, @NonNull Matrix V0) {
+        int dim = V0.getRowsCount();
+        Dynamics dyn = Dynamics.of(vdesc.getCoefficients(), vdesc.getInnovationsVariance(), dim);
+        Initialization initialization = Initialization.user(a0, V0);
+        Measurements m = Measurements.of(vdesc.getNfactors(), dim, mdesc);
+        return new MultivariateSsf(initialization, dyn, m);
+    }
+
+    public MultivariateSsf zeroSsf(TransitionDescriptor vdesc, MeasurementDescriptor[] mdesc, int extendedLags) {
+        int nlx = extendedLags(Math.max(extendedLags, vdesc.getNlags()), mdesc);
+        int nf = vdesc.getNfactors();
+        Dynamics dyn = Dynamics.of(vdesc.getCoefficients(), vdesc.getInnovationsVariance(), nlx);
+        Initialization initialization = Initialization.zero(nlx);
         Measurements m = Measurements.of(nf, nlx, mdesc);
         return new MultivariateSsf(initialization, dyn, m);
     }

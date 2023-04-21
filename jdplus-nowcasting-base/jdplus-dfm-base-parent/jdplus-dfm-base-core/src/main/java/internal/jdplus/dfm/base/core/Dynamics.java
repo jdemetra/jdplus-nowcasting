@@ -16,30 +16,54 @@
  */
 package internal.jdplus.dfm.base.core;
 
+import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.data.DataWindow;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.ISsfDynamics;
 
-
 /**
  *
  * @author Jean Palate
  */
-@lombok.Data(staticConstructor = "of")
 public class Dynamics implements ISsfDynamics {
 
-    public static Dynamics of(FastMatrix T, FastMatrix V, int nlx) {
-        Dynamics dyn = new Dynamics(nlx, T, V);
-        int nf=V.getRowsCount();
-        dyn.ttmp = new double[nf];
-        dyn.xtmp = new double[nf*nlx];
-        return dyn;
+    public static Dynamics of(Matrix T, Matrix V) {
+        return new Dynamics(T, V);
+    }
+
+    private Dynamics(Matrix T, Matrix V, int nlx) {
+        this.T = FastMatrix.of(T);
+        this.V = FastMatrix.of(V);
+        int nf = V.getRowsCount();
+        ttmp = new double[nf];
+        xtmp = new double[nf * nlx];
+        this.nlx=nlx;
+    }
+
+    public static Dynamics of(Matrix T, Matrix V, int nlx) {
+        return new Dynamics(T, V, nlx);
+    }
+
+    private Dynamics(Matrix T, Matrix V) {
+        this.T = FastMatrix.of(T);
+        this.V = FastMatrix.of(V);
+        ttmp = new double[V.getColumnsCount()];
+        xtmp = new double[T.getColumnsCount()];
+        nlx=xtmp.length/ttmp.length;
     }
 
     final int nlx;
     final FastMatrix T, V;
-    double[] ttmp, xtmp;
+    final double[] ttmp, xtmp;
+    
+    public FastMatrix getT(){
+        return T;
+    }
+    
+    public FastMatrix getV(){
+        return V;
+    }
 
     int nl() {
         return T.getColumnsCount() / T.getRowsCount();
