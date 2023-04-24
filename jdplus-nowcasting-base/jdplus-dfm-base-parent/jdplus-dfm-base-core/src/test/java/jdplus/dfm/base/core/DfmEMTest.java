@@ -19,20 +19,22 @@ package jdplus.dfm.base.core;
 import java.io.File;
 import java.io.IOException;
 
-import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import tck.demetra.data.Data;
 import tck.demetra.data.MatrixSerializer;
 import java.util.ArrayList;
 import java.util.List;
+import jdplus.dfm.base.api.MeasurementType;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
+import jdplus.dfm.base.core.var.VarDescriptor;
+import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.api.timeseries.TsData;
+import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.stats.DescriptiveStatistics;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
@@ -40,7 +42,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class DfmEMTest {
 
-//    static final DynamicFactorModel dmodel;
+    static DynamicFactorModel dmodel;
+
     static final int N = 500;
     static final boolean stressTest = false;
 
@@ -57,11 +60,8 @@ public class DfmEMTest {
         for (int i = 0; i < dd.getRowsCount(); ++i) {
             input.add(TsData.of(start, dd.row(i)));
         }
-
         dfmdata = new TsInformationSet(input); // input is TsData[]      
-        System.out.println(dfmdata.actualData().generateMatrix(null) );
     }
-//
 
     private static void loadDavidModel() throws IOException {
         File file = Data.copyToTempFile(DfmEMTest.class.getResource("/transition.csv"));
@@ -86,22 +86,10 @@ public class DfmEMTest {
 
         // build default the model
         //transition equation
-        int nb = 3, nl = 4, c = 24, nc=nb*nl;
-        FastMatrix C=FastMatrix.make(nb, nc);
-        C.diagonal().set(1);
-        FastMatrix V=FastMatrix.identity(nb);
+        int nb = 3, nl = 4, c = 24, nc = nb * nl;
+        FastMatrix C = FastMatrix.make(nb, nc);
 
-        TransitionDescriptor var= TransitionDescriptor.builder()
-                .nlags(nl)
-                .nfactors(nb)
-                .coefficients(C)
-                .innovationsVariance(V)
-                .buildWithoutValidation();
-
-//        DynamicFactorModel.Builder dmodel=DynamicFactorModel.builder()
-//                .initialization(ISsfInitialization.Type.Zero)
-//                .nlags(nl)
-//                .var(var);
+        VarDescriptor var = new VarDescriptor(VarDescriptor.defaultCoefficients(nb, nl));
 //
 //        DynamicFactorModel.TransitionDescriptor tdesc = new DynamicFactorModel.TransitionDescriptor(nb, nl);
 //        for (int i = 0; i < nb; ++i) {
@@ -120,6 +108,9 @@ public class DfmEMTest {
         }
         dd = FastMatrix.make(nv, O.getRowsCount() + 15);
         dd.set(Double.NaN);
+
+        List<MeasurementDescriptor> mdescs = new ArrayList<>();
+
         for (int i = 0, j = 0; i < M.getRowsCount(); ++i) {
             if (M.row(i).range(0, 4).anyMatch(x -> x != 0)) {
                 DataBlock row = dd.row(j);
@@ -130,49 +121,49 @@ public class DfmEMTest {
                 row.sub(m);
                 row.mul(1 / e);
 
-//                double[] q = new double[3];
-//                for (int k = 0; k < 3; ++k) {
-//                    if (M.get(i, k + 1) == 1) {
-//                        q[k] = Z.get(j, k * 12);
-//                    } else {
-//                        q[k] = Double.NaN;
-//                    }
-//                }
-//                DynamicFactorModel.MeasurementDescriptor desc = new DynamicFactorModel.MeasurementDescriptor(
-//                        measurement((int) M.get(i, 0)), q, MVar.get(j, j));
-//                dmodel.addMeasurement(desc);
+                double[] q = new double[3];
+                for (int k = 0; k < 3; ++k) {
+                    if (M.get(i, k + 1) == 1) {
+                        q[k] = Z.get(j, k * 12);
+                    } else {
+                        q[k] = Double.NaN;
+                    }
+                }
+                MeasurementDescriptor desc = MeasurementDescriptor.builder()
+                        .type(measurement((int) M.get(i, 0)))
+                        .coefficient(DoubleSeq.of(q))
+                        .variance(MVar.get(j, j))
+                        .build();
+                mdescs.add(desc);
                 ++j;
             }
         }
-//        ddrnd = dd.clone();
-//        ddrnd.randomize();
-//        dmodel.setInitialization(VarSpec.Initialization.Unconditional);
+        dmodel = new DynamicFactorModel(var, mdescs);
+    }
+
+    private static IDfmMeasurement measurement(int i) {
+        switch (i) {
+            case 1:
+                return IDfmMeasurement.measurement(MeasurementType.M);
+            case 2:
+                return IDfmMeasurement.measurement(MeasurementType.Q);
+            default:
+                return IDfmMeasurement.measurement(MeasurementType.YoY);
+        }
     }
 
     static {
         try//
-        //    private static DynamicFactorModel.IMeasurement measurement(int i) {
-        //        if (i == 1) {
-        //            return DynamicFactorModel.measurement(DynamicFactorModel.MeasurementType.M);
-        //        } else if (i == 2) {
-        //            return DynamicFactorModel.measurement(DynamicFactorModel.MeasurementType.Q);
-        //        } else {
-        //            return DynamicFactorModel.measurement(DynamicFactorModel.MeasurementType.YoY);
-        //        }
-        //    }
-        //
         {
             loadDavidModel(); // first the model
             loadData();
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-//         dmodel=null;
-   }
+    }
 
     public DfmEMTest() {
     }
-
 
 //    @Test
 //   public void testinitCalc() {
@@ -185,14 +176,20 @@ public class DfmEMTest {
 //      em = new DfmEM();
 //      em.estimate(dmodelc,dfmdata);  // public, can be tested
 //    //  em.estimate(dmodelc,dfmdata);  // public, can be tested
-
-
- 
-
-
     @Test
-    public void testEM() {
-        
+    public void testInitialize() {
+        PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
+        TsDomain domain = dfmdata.getCurrentDomain().drop(120, 12);
+        initializer.setEstimationDomain(domain);
+        DynamicFactorModel model0 = initializer.initialize(dmodel, dfmdata);
+        System.out.println(model0.getVar().getInnovationsVariance());
+        System.out.println(model0.getVar().getCoefficients());
+        for (MeasurementDescriptor desc : model0.getMeasurements()) {
+            for (int i = 0; i < desc.getCoefficient().length(); ++i) {
+                System.out.print(desc.getCoefficient(i));
+                System.out.print('\t');
+            }
+            System.out.println(desc.getVariance());
+        }
     }
-
 }

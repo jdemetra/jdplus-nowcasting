@@ -45,7 +45,7 @@ import jdplus.toolkit.base.core.stats.linearmodel.Ols;
  *
  * @author Jean Palate
  */
-public class PrincipalComponentInitializer implements IDfmInitializer {
+public class PrincipalComponentsInitializer implements IDfmInitializer {
 
     // original figures
     private Matrix data;
@@ -91,17 +91,13 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
         if (!computePrincipalComponents(model)) {
             return model;
         }
-        TransitionDescriptor var = computeVar(model);
+        VarDescriptor var = computeVar(model);
         if (var == null) {
             return model;
         }
         List<MeasurementDescriptor> ndescs = computeLoadings(model);
-        DynamicFactorModel nmodel = model.toBuilder()
-                .clearMeasurements()
-                .measurements(ndescs)
-                .var(var)
-                .build();
-        return nmodel;
+        
+        return new DynamicFactorModel(var, ndescs);
     }
 
     public Matrix getData() {
@@ -141,7 +137,7 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
     }
 
     private boolean computePrincipalComponents(DynamicFactorModel model) {
-        int nb = model.getFactorsCount();
+        int nb = model.getNfactors();
         pc = new PrincipalComponents[nb];
         for (int i = 0; i < nb; ++i) {
             FastMatrix x = prepareDataForComponent(model, i);
@@ -211,9 +207,9 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
         return s;
     }
 
-    private TransitionDescriptor computeVar(DynamicFactorModel model) {
-        TransitionDescriptor var = model.getVar();
-        int nl = var.getNlags(), nb = model.getFactorsCount();
+    private VarDescriptor computeVar(DynamicFactorModel model) {
+        VarDescriptor var = model.getVar();
+        int nl = var.getNlags(), nb = model.getNfactors();
         DoubleSeq[] f = new DoubleSeq[nb];
         DoubleSeq[] e = new DoubleSeq[nb];
         FastMatrix M = FastMatrix.make(data.getRowsCount() - nl, nl * nb);
@@ -248,36 +244,33 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
             }
         }
         SymmetricMatrix.fromLower(V);
-        return var.toBuilder()
-                .coefficients(C)
-                .innovationsVariance(V)
-                .buildWithoutValidation();
+        return new VarDescriptor(C, V);
     }
 
     private List<MeasurementDescriptor> computeLoadings(DynamicFactorModel model) {
         // creates the matrix of factors
-        int nb = model.getFactorsCount(), blen = model.getBlockLength();
-        FastMatrix M = FastMatrix.make(data.getRowsCount() - (blen - 1), nb * blen);
-        for (int i = 0, c = 0; i < nb; ++i) {
+        int nf = model.getNfactors(), nl=model.getNlags(), ntot = nf*nl;
+        FastMatrix M = FastMatrix.make(data.getRowsCount() - (ntot - 1), nf * ntot);
+        for (int i = 0, c = 0; i < nf; ++i) {
             DataBlock cur = pc[i].getFactor(0);
-            for (int j = 0; j < blen; ++j) {
-                M.column(c++).copy(cur.drop(blen - 1 - j, j));
+            for (int j = 0; j < ntot; ++j) {
+                M.column(c++).copy(cur.drop(ntot - 1 - j, j));
             }
         }
         int v = 0;
         List<MeasurementDescriptor> ndescs = new ArrayList<>();
         for (MeasurementDescriptor desc : model.getMeasurements()) {
-            DataBlock y = datac.column(v++).drop(blen - 1, 0);
+            DataBlock y = datac.column(v++).drop(ntot - 1, 0);
             if (y.isZero(Constants.getEpsilon())) {
                 ndescs.add(desc.withVariance(1));
             } else {
                 MeasurementDescriptor.Builder builder = desc.toBuilder();
                 LinearModel.Builder regmodel = LinearModel.builder();
                 regmodel.y(y);
-                for (int j = 0; j < nb; ++j) {
+                for (int j = 0; j < nf; ++j) {
                     if (!Double.isNaN(desc.getCoefficient(j))) {
                         double[] x = new double[y.length()];
-                        int s = j * blen, l = desc.getType().getLength();
+                        int s = j * ntot, l = desc.getType().getLength();
                         for (int r = 0; r < x.length; ++r) {
                             x[r] = desc.getType().dot(M.row(r).extract(s, l));
                         }
@@ -288,13 +281,14 @@ public class PrincipalComponentInitializer implements IDfmInitializer {
                     LeastSquaresResults ols = Ols.compute(regmodel.build());
                     double[] b = ols.getCoefficients().toArray();
                     double[] c = desc.getCoefficient().toArray();
-                    for (int i = 0, j = 0; j < nb; ++j) {
+                    for (int i = 0, j = 0; j < nf; ++j) {
                         if (!Double.isNaN(c[j])) {
                             c[j] = b[i++];
                         }
                     }
                     builder.coefficient(DoubleSeq.of(c))
-                            .variance(ols.getErrorMeanSquares());
+                            // ML (biased) estimator of the variance
+                            .variance(ols.getErrorSumOfSquares()/y.length());
                 } catch (EcoException ex) {
                     builder.variance(1);
                 }

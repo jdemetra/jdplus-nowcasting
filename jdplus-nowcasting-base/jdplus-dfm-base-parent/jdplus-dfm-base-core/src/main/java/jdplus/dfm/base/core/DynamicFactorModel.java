@@ -17,79 +17,57 @@
 package jdplus.dfm.base.core;
 
 import internal.jdplus.dfm.base.core.SsfDfm;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.api.math.matrices.Matrix;
-import jdplus.toolkit.base.core.data.DataBlock;
-import jdplus.toolkit.base.core.data.DataWindow;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.LowerTriangularMatrix;
 import jdplus.toolkit.base.core.math.matrices.MatrixException;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
 import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
-import lombok.NonNull;
 
 /**
  *
  * @author Jean Palate
  */
-@lombok.Value
-@lombok.Builder(builderClassName = "Builder", toBuilder = true)
 public class DynamicFactorModel {
 
     /**
-     * Number of lags used in the model. Could be larger than the number of lags
-     * in the var descriptor
-     */
-    int nlags;
-    /**
      * Description of the hidden VAR model
      */
-    @lombok.NonNull
-    TransitionDescriptor var;
-    /**
-     * Initialization type
-     */
-    @lombok.NonNull
-    ISsfInitialization.Type initialization;
+    private final VarDescriptor var;
+
     /**
      * Measurement equation
      */
-    @lombok.Singular
-    private List<MeasurementDescriptor> measurements;
+    private final List<MeasurementDescriptor> measurements = new ArrayList<>();
 
-    private DoubleSeq initialState;
-    /**
-     * Covariance of the initial state
-     */
-    private Matrix initialVariance;
+    public DynamicFactorModel(VarDescriptor var, Collection<MeasurementDescriptor> measurements) {
+        this.var = var;
+        this.measurements.addAll(measurements);
+    }
 
-    public static Builder builder() {
-        return new Builder().initialization(ISsfInitialization.Type.Unconditional);
+    private DynamicFactorModel(VarDescriptor var) {
+        this.var = var;
     }
 
     public DynamicFactorModel rescaleVariances(double cvar) {
         if (cvar == 1) {
             return this;
         }
-        Builder builder = toBuilder();
-        builder.clearMeasurements();
+        DynamicFactorModel nmodel = new DynamicFactorModel(var.rescaleVariance(cvar));
+
         for (MeasurementDescriptor m : measurements) {
-            builder.measurement(m.rescaleVariance(cvar));
+            nmodel.measurements.add(m.rescaleVariance(cvar));
         }
-        builder.var(var.rescaleVariance(cvar));
-        if (initialVariance != null) {
-            FastMatrix v0 = FastMatrix.of(initialVariance);
-            v0.mul(cvar);
-            builder.initialVariance(v0);
-        }
-        return builder.build();
+        return nmodel;
     }
-    
+
     public boolean isValid() {
         for (MeasurementDescriptor mdesc : this.measurements) {
             if (mdesc.getVariance() < 0) {
@@ -102,10 +80,9 @@ public class DynamicFactorModel {
         } catch (MatrixException err) {
             return false;
         }
-        DfmMapping mapping = new DfmMapping(this);
+        DfmMapping mapping = new DfmMapping(this, ISsfInitialization.Type.Zero, var.getNlags());
         return mapping.checkBoundaries(mapping.getDefaultParameters());
     }
-
 
     /**
      * Rescale the model so that the variances of the transition shocks are
@@ -120,55 +97,11 @@ public class DynamicFactorModel {
         int nl = var.getNlags(), nf = var.getNfactors();
         double[] w = new double[nf];
         var.getInnovationsVariance().diagonal().sqrt().copyTo(w, 0);
-        Builder builder = toBuilder();
-        if (initialVariance != null) {
-            FastMatrix V0 = FastMatrix.of(initialVariance);
-            DataBlock a0 = initialState == null ? null : DataBlock.of(initialState);
-            for (int i = 0; i < nf; ++i) {
-                if (a0 != null)
-                    a0.extract(i * nlags, nlags).mul(1/w[i]);
-                for (int j = 0; j < nf; ++j) {
-                    V0.extract(i * nlags, nlags, j * nlags, nlags).mul(1 / (w[i] * w[j]));
-                }
-            }
-            builder.initialVariance(V0);
-            if (a0 != null)
-                builder.initialState(a0);
-        }
-        // covar
-        TransitionDescriptor.Builder vbuilder = var.toBuilder();
-        FastMatrix V = FastMatrix.of(var.getInnovationsVariance());
-        for (int i = 0; i < nf; ++i) {
-            if (w[i] != 0) {
-                V.set(i, i, 1);
-                for (int j = 0; j < i; ++j) {
-                    if (w[j] != 0) {
-                        V.mul(i, j, 1 / (w[i] * w[j]));
-                    }
-                }
-            }
-        }
-        SymmetricMatrix.fromLower(V);
-        vbuilder.innovationsVariance(V);
-        
-        // varParams
-        FastMatrix C = FastMatrix.of(var.getCoefficients());
-        for (int i = 0; i < nf; ++i) {
-            if (w[i] != 0) {
-                DataWindow range = C.row(i).left();
-                for (int j = 0; j < nf; ++j) {
-                    DataBlock b=range.next(nl);
-                    if (w[j] != 0 && i != j) {
-                        b.mul(w[j] / w[i]);
-                    }
-                }
-            }
-        }
-        vbuilder.coefficients(C);
-        builder.var(vbuilder.buildWithoutValidation());
+
+        VarDescriptor nvar=var.divide(w);
+        DynamicFactorModel nmodel = new DynamicFactorModel(nvar);
 
         // loadings
-        builder.clearMeasurements();
         for (MeasurementDescriptor desc : measurements) {
             double[] coefficient = desc.getCoefficient().toArray();
             for (int i = 0; i < nf; ++i) {
@@ -179,9 +112,9 @@ public class DynamicFactorModel {
             MeasurementDescriptor ndesc = desc.toBuilder()
                     .coefficient(DoubleSeq.of(coefficient))
                     .build();
-            builder.measurement(ndesc);
+            nmodel.measurements.add(ndesc);
         }
-        return builder.build();
+        return nmodel;
     }
 
     /**
@@ -191,8 +124,8 @@ public class DynamicFactorModel {
      * coefficients are updated accordingly
      *
      * @return
-     * @throws DfmException is thrown when the loadings are not compatible
-     * with the triangular transformation implied by Cholesky
+     * @throws DfmException is thrown when the loadings are not compatible with
+     * the triangular transformation implied by Cholesky
      */
     public DynamicFactorModel lnormalize() {
         int nf = var.getNfactors(), nl = var.getNlags();
@@ -200,16 +133,34 @@ public class DynamicFactorModel {
         if (V.isIdentity()) {
             return this;
         }
-        Builder builder = this.toBuilder();
+
         FastMatrix L = V.deepClone();
         SymmetricMatrix.lcholesky(L);
+        
+        // transform the var
+        // f(t) = A f(t-1) + u(t)
+        //L^-1*f(t) = L^-1*A*L*L^-1* f(t-1) + e(t)
+        // C=L^-1*A*L <-> LC=AL
+
+        VarDescriptor.Coefficients C = VarDescriptor.Coefficients.of(var);
+        for (int i = 1; i <= nl; ++i) {
+            FastMatrix A = C.A(i);
+            // AL
+            LowerTriangularMatrix.ML(L, A);
+            // LC = (AL)
+            LowerTriangularMatrix.solveLX(L, A);
+        }
+        
+        VarDescriptor nvar = new VarDescriptor(C.all());
+       
+        DynamicFactorModel nmodel=new DynamicFactorModel(nvar);
+        
         // L contains the Cholesky factor
 
         // transform the loadings
         // y = C*f + e <-> y = (C*L)*L^-1*f+e
         // B = C*L
         // loadings
-        builder.clearMeasurements();
         for (MeasurementDescriptor desc : measurements) {
             double[] c = desc.getCoefficient().toArray();
             for (int i = 0; i < nf; ++i) {
@@ -230,198 +181,43 @@ public class DynamicFactorModel {
                 }
             }
             MeasurementDescriptor ndesc = desc.toBuilder().coefficient(DoubleSeq.of(c)).build();
-            builder.measurement(ndesc);
+            nmodel.measurements.add(ndesc);
         }
-        // transform the var
-        // f(t) = A f(t-1) + u(t)
-        //L^-1*f(t) = L^-1*A*L*L^-1* f(t-1) + e(t)
-        // C=L^-1*A*L <-> LC=AL
-
-        VarDescriptor.Coefficients C = VarDescriptor.Coefficients.of(var.toVarDescriptor());
-        for (int i = 1; i <= nl; ++i) {
-            FastMatrix A = C.A(i);
-            // AL
-            LowerTriangularMatrix.ML(L, A);
-            // LC = (AL)
-            LowerTriangularMatrix.solveLX(L, A);
-        }
-
-        VarDescriptor nvar=VarDescriptor.builder()
-                .nfactors(var.getNfactors())
-                .nlags(var.getNlags())
-                .innovationsVariance(FastMatrix.identity(var.getNfactors()))
-                .coefficients(C.all())
-                .buildWithoutValidation();
-
-        builder.var(TransitionDescriptor.of(nvar));
-        if (initialVariance != null) {
-
-/*          TODO
-            FastMatrix V0 = FastMatrix.of(initialVariance);
-            // L^-1*V*L^-1' =W <-> L(WL')=V <-> LX=V, WL'=X or LW'=X'
-            for (int i = 0; i < nlags; ++i) {
-                for (int j = 0; j < nlags; ++j) {
-                    FastMatrix t = FastMatrix.square(nf);
-                    for (int k = 0; k < nf; ++k) {
-                        for (int l = 0; l < nf; ++l) {
-                            t.set(k, l, this.initialVariance.get(k * nlags + i, l * nlags + j));
-                        }
-                    }
-                    LowerTriangularMatrix.solveLX(L, t);
-                    LowerTriangularMatrix.solveLX(L, t.transpose());
-                    for (int k = 0; k < nf; ++k) {
-                        for (int l = 0; l < nf; ++l) {
-                            V0.set(k * nlags + i, l * nlags + j, t.get(k, l));
-                        }
-                    }
-                }
-            }
-            builder.initialVariance(V);
-
- */
-        }
-        return builder.build();
+        return nmodel;
     }
 
-////    /**
-////     * Compacts the factors of a given models
-////     *
-////     * @param from The first factor to merge
-////     * @param to The last factor (included) to merge
-////     * @return A new model is returned. It should be re-estimated.
-////     */
-////    public DynamicFactorModel compactFactors(int from, int to) {
-////        if (from < 0 || to < from || to >= nf_) {
-////            return null;
-////        }
-////        if (to == from) {
-////            return clone();
-////        }
-////        int nc = to - from;
-////        DynamicFactorModel m = new DynamicFactorModel(nlags, nf_ - nc);
-////        TransitionDescriptor td = new TransitionDescriptor(nf_ - nc, varDescriptor.nlags);
-////        m.varDescriptor = td;
-////        m.varDescriptor.covar.diagonal().set(1);
-////        for (MeasurementDescriptor md : measurementDescriptors) {
-////            double[] ncoeff = new double[nf_ - nc];
-////            for (int i = 0; i < from; ++i) {
-////                ncoeff[i] = md.coeff[i];
-////            }
-////            for (int i = to + 1; i < nf_; ++i) {
-////                ncoeff[i - nc] = md.coeff[i];
-////            }
-////            boolean used = false;
-////            for (int i = from; i <= to; ++i) {
-////                if (!Double.isNaN(md.coeff[i])) {
-////                    used = true;
-////                    break;
-////                }
-////            }
-////            if (!used) {
-////                ncoeff[from] = Double.NaN;
-////            }
-////            m.measurementDescriptors.add(new MeasurementDescriptor(
-////                    md.type, ncoeff, 1));
-////        }
-////        return m;
-////    }
-////
-    /**
-     * The number of lags for each factor
-     *
-     * @return
-     */
-    public int getBlockLength() {
-        return nlags;
-    }
-
-    /**
-     * The number of factors
-     *
-     * @return
-     */
-    public int getFactorsCount() {
+     public int getNfactors() {
         return var.getNfactors();
     }
-
-//    /**
-//     * Changes the number of lags of each factor that is included in the model
-//     *
-//     * @param c The size of each block of factors (lags in [t, t-c[ belong to
-//     * the model). c should larger or equal to the number of lags in the
-//     * transition equation.
-//     * @throws DfmException is thrown when the model is invalid (see above)
-//     */
-//    public void setBlockLength(int c) throws DfmException {
-//        if (varDescriptor != null && c < varDescriptor.getNlags()) {
-//            throw new DfmException(DfmException.INVALID_MODEL);
-//        }
-//        nlags = c;
-//    }
-    /**
-     * Sets a new descriptor for the transition equation (VAR model)
-     *
-     * @param desc The descriptor of the transition equation
-     * @return
-     * @throws DfmException is thrown when the model is invalid
-     */
-    public DynamicFactorModel withTransition(VarDescriptor desc) throws DfmException {
-        if (nlags < desc.getNlags()) {
-            throw new DfmException(DfmException.INVALID_MODEL);
-        }
-        return toBuilder()
-                .var(TransitionDescriptor.of(desc))
-                .build();
-    }
     
-    public DynamicFactorModel withBlockLength(int nlags) throws DfmException {
-        if (nlags==this.nlags)
-            return this;
-        if (nlags < var.getNlags()) {
-            throw new DfmException(DfmException.INVALID_MODEL);
-        }
-        return toBuilder()
-                .nlags(nlags)
-                .build();
-    }
-    
-
-    /**
-     *
-     * @return
-     */
-    public VarDescriptor getVarDescriptor() {
-        return var.toVarDescriptor();
+    public int getNlags(){
+        return var.getNlags();
     }
 
-    public @NonNull TransitionDescriptor getVar() {
+    public VarDescriptor getVar() {
         return var;
     }
-    /**
-     *
-     * @return
-     */
+
     public List<MeasurementDescriptor> getMeasurements() {
         return Collections.unmodifiableList(measurements);
     }
 
     /**
      *
+     * @param initialization
+     * @param nlags
      * @return
      */
-    public IMultivariateSsf ssfRepresentation() {
-        switch (initialization){
+    public IMultivariateSsf ssfRepresentation(ISsfInitialization.Type initialization, int nlags) {
+        switch (initialization) {
             case Unconditional -> {
                 return SsfDfm.unconditionalSsf(var, measurements.toArray(MeasurementDescriptor[]::new), nlags);
             }
-             case Zero -> {
+            case Zero -> {
                 return SsfDfm.zeroSsf(var, measurements.toArray(MeasurementDescriptor[]::new), nlags);
             }
-            case UserDefined -> {
-                return SsfDfm.userSsf(var, measurements.toArray(MeasurementDescriptor[]::new), initialState, initialVariance);
-            }
-       }
-       return null;
+        }
+        return null;
     }
 
     /**
@@ -432,53 +228,6 @@ public class DynamicFactorModel {
         return measurements.size();
     }
 
-    /**
-     *
-     * @param init
-     * @return
-     */
-    public DynamicFactorModel withInitialization(ISsfInitialization.Type init, DoubleSeq a0, Matrix V0) {
-        Builder builder = toBuilder()
-                .initialization(init);
-        if (init != ISsfInitialization.Type.UserDefined) {
-            builder.initialState(null);
-            builder.initialVariance(null);
-        }else{
-            builder.initialVariance(V0);
-            builder.initialState(a0);
-        }
-        return builder.build();
-    }
-
-//    /**
-//     *
-//     * @return True if the model has been changed
-//     */
-//    public boolean validate() {
-//        boolean rslt = false;
-//        DfmMapping mapping = new DfmMapping(this);
-//        if (!mapping.checkBoundaries(mapping.parameters())) {
-//            // set default values for the VAR matrix
-//            tdesc_.varParams.set(0);
-//            for (int j = 0; j < nf_; ++j) {
-//                tdesc_.varParams.set(j, j * tdesc_.nlags, AR_DEF);
-//            }
-//            rslt = true;
-//        }
-//
-//        Matrix v = this.tdesc_.covar.clone();
-//        try {
-//            SymmetricMatrix.lcholesky(v);
-//            return rslt;
-//        } catch (MatrixException err) {
-//            DataBlock d = v.diagonal().deepClone();
-//            this.tdesc_.covar.set(0);
-//            this.tdesc_.covar.diagonal().copy(d);
-//            return true;
-//        }
-//
-//    }
-//
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();

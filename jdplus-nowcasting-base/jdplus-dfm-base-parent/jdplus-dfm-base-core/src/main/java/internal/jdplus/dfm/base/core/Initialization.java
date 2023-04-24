@@ -93,7 +93,7 @@ public class Initialization implements ISsfInitialization {
             j += n - i;
         }
         SymmetricMatrix.fromLower(cov);
-        int nlx = dynamics.nlx;
+        int nlx = dynamics.nxlags;
         if (nl == nlx) {
             return cov;
         }

@@ -26,34 +26,34 @@ import jdplus.toolkit.base.core.ssf.ISsfDynamics;
  *
  * @author Jean Palate
  */
-public class Dynamics implements ISsfDynamics {
+class Dynamics implements ISsfDynamics {
 
-    public static Dynamics of(Matrix T, Matrix V) {
+    static Dynamics of(FastMatrix T, FastMatrix V) {
         return new Dynamics(T, V);
     }
 
-    private Dynamics(Matrix T, Matrix V, int nlx) {
-        this.T = FastMatrix.of(T);
-        this.V = FastMatrix.of(V);
+    private Dynamics(FastMatrix T, FastMatrix V, int nxlags) {
+        this.T = T;
+        this.V = V;
         int nf = V.getRowsCount();
         ttmp = new double[nf];
-        xtmp = new double[nf * nlx];
-        this.nlx=nlx;
+        xtmp = new double[nf * nxlags];
+        this.nxlags=nxlags;
     }
 
-    public static Dynamics of(Matrix T, Matrix V, int nlx) {
-        return new Dynamics(T, V, nlx);
+    static Dynamics of(FastMatrix T, FastMatrix V, int nxlags) {
+        return new Dynamics(T, V, nxlags);
     }
 
-    private Dynamics(Matrix T, Matrix V) {
-        this.T = FastMatrix.of(T);
-        this.V = FastMatrix.of(V);
+    private Dynamics(FastMatrix T, FastMatrix V) {
+        this.T = T;
+        this.V = V;
         ttmp = new double[V.getColumnsCount()];
         xtmp = new double[T.getColumnsCount()];
-        nlx=xtmp.length/ttmp.length;
+        nxlags=xtmp.length/ttmp.length;
     }
 
-    final int nlx;
+    final int nxlags;
     final FastMatrix T, V;
     final double[] ttmp, xtmp;
     
@@ -86,7 +86,7 @@ public class Dynamics implements ISsfDynamics {
     @Override
     public void S(int pos, FastMatrix cm) {
         int nf = nf();
-        for (int i = 0, r = 0; i < nf; ++i, r += nlx) {
+        for (int i = 0, r = 0; i < nf; ++i, r += nxlags) {
             cm.set(r, i, 1);
         }
     }
@@ -104,9 +104,9 @@ public class Dynamics implements ISsfDynamics {
     @Override
     public void T(int pos, FastMatrix tr) {
         int nl = nl(), nf = nf();
-        for (int i = 0, r = 0; i < nf; ++i, r += nlx) {
-            for (int j = 0, c = 0; j < nf; ++j, c += nlx) {
-                FastMatrix B = tr.extract(r, r + nlx, c, c + nlx);
+        for (int i = 0, r = 0; i < nf; ++i, r += nxlags) {
+            for (int j = 0, c = 0; j < nf; ++j, c += nxlags) {
+                FastMatrix B = tr.extract(r, r + nxlags, c, c + nxlags);
                 if (i == j) {
                     B.subDiagonal(-1).set(1);
                 }
@@ -125,24 +125,24 @@ public class Dynamics implements ISsfDynamics {
             DataWindow xb = x.left();
             r += p.next(nl).dot(xb.next(nl));
             for (int j = 1; j < nf; ++j) {
-                r += p.next(nl).dot(xb.slide(nlx));
+                r += p.next(nl).dot(xb.slide(nxlags));
             }
             ttmp[i] = r;
         }
         x.fshiftAndZero();
-        x.extract(0, -1, nlx).copyFrom(ttmp, 0);
+        x.extract(0, -1, nxlags).copyFrom(ttmp, 0);
     }
 
     @Override
     public void addSU(int pos, DataBlock x, DataBlock u) {
-        x.extract(0, nf(), nlx).add(u);
+        x.extract(0, nf(), nxlags).add(u);
     }
 
     @Override
     public void addV(int pos, FastMatrix p) {
         int nf = nf();
         for (int i = 0; i < nf; ++i) {
-            DataBlock cv = p.column(i * nlx).extract(0, nf, nlx);
+            DataBlock cv = p.column(i * nxlags).extract(0, nf, nxlags);
             cv.add(V.column(i));
         }
     }
@@ -152,14 +152,14 @@ public class Dynamics implements ISsfDynamics {
         int nl = nl(), nf = nf();
         for (int i = 0, k = 0, l = 0; i < nf; ++i) {
             for (int j = 0; j < nl; ++j, ++k) {
-                double r = ((k + 1) % nlx != 0) ? x.get(k + 1) : 0;
-                r += T.column(l++).dot(x.extract(0, nf, nlx));
+                double r = ((k + 1) % nxlags != 0) ? x.get(k + 1) : 0;
+                r += T.column(l++).dot(x.extract(0, nf, nxlags));
                 xtmp[k] = r;
             }
-            for (int j = nl; j < nlx - 1; ++j, ++k) {
+            for (int j = nl; j < nxlags - 1; ++j, ++k) {
                 xtmp[k] = x.get(k + 1);
             }
-            if (nlx > nl) {
+            if (nxlags > nl) {
                 xtmp[k++] = 0;
             }
         }
@@ -168,7 +168,7 @@ public class Dynamics implements ISsfDynamics {
 
     @Override
     public void XS(int pos, DataBlock x, DataBlock xs) {
-        xs.copy(x.extract(0, nf(), nlx));
+        xs.copy(x.extract(0, nf(), nxlags));
     }
 
     @Override

@@ -20,6 +20,7 @@ import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
+import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.ssf.StateStorage;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateFilteringInformation;
@@ -30,26 +31,57 @@ import jdplus.toolkit.base.core.ssf.multivariate.SsfMatrix;
  *
  * @author Jean Palate
  */
-public class DfmProcessor  {
+public class DfmProcessor {
+
+    public static class Builder {
+
+        private boolean calcVariance = true;
+        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
+        private int nxlags;
+
+        public Builder calcVariaraince(boolean var) {
+            this.calcVariance = var;
+            return this;
+        }
+
+        public Builder extendedLags(int nxlags) {
+            this.nxlags = nxlags;
+            return this;
+        }
+
+        public Builder initialization(ISsfInitialization.Type initialization) {
+            this.initialization = initialization;
+            return this;
+        }
+        
+        public DfmProcessor build(){
+            return new DfmProcessor(this);
+        }
+        
+    }
+    
+    public static Builder builder(){
+        return new Builder();
+    }
+
+    private final boolean calcVariance;
+    private final ISsfInitialization.Type initialization;
+    private final int nxlags;
+    
+    private DfmProcessor(Builder builder){
+        this.calcVariance=builder.calcVariance;
+        this.initialization=builder.initialization;
+        this.nxlags=builder.nxlags;
+    }
 
     private StateStorage smoothingResults;
     private MultivariateFilteringInformation filteringResults;
-    private boolean calcVariance;
-
     public void clear() {
         smoothingResults = null;
         filteringResults = null;
     }
 
-    public boolean isCalcVariance() {
-        return calcVariance;
-    }
-
-    public void setCalcVariance(boolean bvar) {
-        calcVariance = bvar;
-    }
-
-    /**
+     /**
      * Retrieves the smoothing results
      *
      * @return The Smoothing results. May by null.
@@ -69,7 +101,7 @@ public class DfmProcessor  {
         }
         try {
             clear();
-            IMultivariateSsf ssf = model.ssfRepresentation();
+            IMultivariateSsf ssf = model.ssfRepresentation(initialization, nxlags);
             MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
                     .calcVariance(calcVariance)
                     .build();
