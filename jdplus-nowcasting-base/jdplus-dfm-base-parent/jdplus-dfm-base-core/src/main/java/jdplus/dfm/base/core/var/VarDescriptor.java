@@ -139,7 +139,7 @@ public class VarDescriptor {
                 if (i != j) {
                     double q = w[i] / w[j];
                     for (int c = j; c < nc; c += nf) {
-                        V.mul(i, c, q);
+                        C.mul(i, c, q);
                     }
                 }
             }

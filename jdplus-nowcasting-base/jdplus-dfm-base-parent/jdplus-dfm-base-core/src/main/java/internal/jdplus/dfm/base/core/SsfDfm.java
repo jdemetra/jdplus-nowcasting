@@ -18,11 +18,9 @@ package internal.jdplus.dfm.base.core;
 
 import jdplus.dfm.base.core.MeasurementDescriptor;
 import jdplus.dfm.base.core.var.VarDescriptor;
-import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateSsf;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  *
@@ -42,14 +40,14 @@ public class SsfDfm {
         return nlx;
     }
     
-    private static FastMatrix convert(Matrix varParameters){
-        int nf = varParameters.getRowsCount(), nc=varParameters.getColumnsCount();
+    private static FastMatrix convert(Matrix M){
+        int nf = M.getRowsCount(), nc=M.getColumnsCount();
         int nl=nc/nf;
         FastMatrix C = FastMatrix.make(nf, nf * nl);
         // M columns arrange by lags, C columns arranged by factors
         for (int l = 0, k=0; l < nl; ++l) {
             for (int f=0; f<nf; ++f, ++k){
-                C.column(l+f*nl).copy(varParameters.column(k));
+                C.column(l+f*nl).copy(M.column(k));
             }
         }
         return C;        
@@ -76,7 +74,7 @@ public class SsfDfm {
         int nxlags = extendedLags(Math.max(extendedLags, vdesc.getNlags()), mdesc);
         int nf = vdesc.getNfactors();
         Dynamics dyn = Dynamics.of(convert(vdesc.getCoefficients()), FastMatrix.of(vdesc.getInnovationsVariance()), nxlags);
-        Initialization initialization = Initialization.zero(nxlags);
+        Initialization initialization = Initialization.zero(vdesc.getInnovationsVariance(), nxlags);
         Measurements m = Measurements.of(nf, nxlags, mdesc);
         return new MultivariateSsf(initialization, dyn, m);
     }

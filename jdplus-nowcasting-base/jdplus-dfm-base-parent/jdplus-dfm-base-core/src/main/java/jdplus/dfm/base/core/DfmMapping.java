@@ -84,8 +84,8 @@ public class DfmMapping implements IDfmMapping {
 
     public DfmMapping(DynamicFactorModel model, ISsfInitialization.Type initialization, int nxlags, final boolean mfixed, final boolean tfixed) {
         template = model;
-        this.initialization=initialization;
-        this.nxlags=nxlags;
+        this.initialization = initialization;
+        this.nxlags = nxlags;
         nb = template.getNfactors();
         nl = template.getNlags();
         // measurement: all loadings, all var
@@ -147,16 +147,17 @@ public class DfmMapping implements IDfmMapping {
 
     @Override
     public IMultivariateSsf map(DoubleSeq p) {
-        @NonNull VarDescriptor var = template.getVar();
+        @NonNull
+        VarDescriptor var = template.getVar();
         DoubleSeq vp = vparams(p);
         if (vp != null) {
             FastMatrix t = FastMatrix.of(var.getCoefficients());
             vp.copyTo(t.getStorage(), 0);
-            var=new VarDescriptor(t);
+            var = new VarDescriptor(t);
         }
-        
+
         List<MeasurementDescriptor> m = new ArrayList<>();
-        
+
         DoubleSeq l = loadings(p);
         DoubleSeq mv = mvars(p);
         int i0 = 0, j0 = 0;
@@ -181,7 +182,7 @@ public class DfmMapping implements IDfmMapping {
                 ++n;
             }
         }
-        DynamicFactorModel dfm=new DynamicFactorModel(var, m);
+        DynamicFactorModel dfm = new DynamicFactorModel(var, m);
         return dfm.ssfRepresentation(initialization, nxlags);
     }
 
@@ -196,7 +197,7 @@ public class DfmMapping implements IDfmMapping {
             int n = 0;
             for (MeasurementDescriptor desc : m.getMeasurements()) {
                 for (int k = 0; k < nb; ++k) {
-                    double c=desc.getCoefficient(k);
+                    double c = desc.getCoefficient(k);
                     if (!Double.isNaN(c)) {
                         if (n != immax || k != ifmax) {
                             l.set(i0++, c);
@@ -230,18 +231,18 @@ public class DfmMapping implements IDfmMapping {
             //    |0   1   0
             //    |...
             FastMatrix Q = FastMatrix.square(nb * nl);
-            for (int i = 0, i0 = 0; i < nb; ++i) {
-                for (int l = 0; l < nl; ++l, i0 += nb) {
-                    DataBlock c = Q.column(l * nb + i).range(0, nb);
-                    c.copy(vp.extract(i0, nb));
-                }
+            for (int i = 0, i0 = 0; i < Q.getColumnsCount(); ++i, i0 += nb) {
+                DataBlock c = Q.column(i).range(0, nb);
+                c.copy(vp.extract(i0, nb));
             }
+
             Q.subDiagonal(-nb).set(1);
             IEigenSystem es = EigenSystem.create(Q, false);
             Complex[] ev = es.getEigenValues();
-            for (int i=0; i<ev.length; ++i){
-                if (ev[i].absSquare()>=1)
+            for (int i = 0; i < ev.length; ++i) {
+                if (ev[i].absSquare() >= 1) {
                     return false;
+                }
             }
             return true;
         } catch (MatrixException err) {
@@ -249,8 +250,6 @@ public class DfmMapping implements IDfmMapping {
         }
 //        return true;
     }
-    
-    
 
     @Override
     public double epsilon(DoubleSeq inparams, int idx) {

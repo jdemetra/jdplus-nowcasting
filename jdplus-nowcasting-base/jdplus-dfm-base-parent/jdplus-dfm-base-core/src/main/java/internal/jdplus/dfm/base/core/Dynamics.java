@@ -16,7 +16,6 @@
  */
 package internal.jdplus.dfm.base.core;
 
-import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.data.DataWindow;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
@@ -26,9 +25,9 @@ import jdplus.toolkit.base.core.ssf.ISsfDynamics;
  *
  * @author Jean Palate
  */
-class Dynamics implements ISsfDynamics {
+public class Dynamics implements ISsfDynamics {
 
-    static Dynamics of(FastMatrix T, FastMatrix V) {
+    public static Dynamics of(FastMatrix T, FastMatrix V) {
         return new Dynamics(T, V);
     }
 
@@ -41,7 +40,7 @@ class Dynamics implements ISsfDynamics {
         this.nxlags=nxlags;
     }
 
-    static Dynamics of(FastMatrix T, FastMatrix V, int nxlags) {
+    public static Dynamics of(FastMatrix T, FastMatrix V, int nxlags) {
         return new Dynamics(T, V, nxlags);
     }
 
@@ -120,17 +119,16 @@ class Dynamics implements ISsfDynamics {
         int nl = nl(), nf = nf();
         // compute first the next item
         for (int i = 0; i < nf; ++i) {
-            double r = 0;
             DataWindow p = T.row(i).left();
             DataWindow xb = x.left();
-            r += p.next(nl).dot(xb.next(nl));
+            double r = p.next(nl).dot(xb.next(nl));
             for (int j = 1; j < nf; ++j) {
-                r += p.next(nl).dot(xb.slide(nxlags));
+                r += p.next(nl).dot(xb.move(nxlags));
             }
             ttmp[i] = r;
         }
         x.fshiftAndZero();
-        x.extract(0, -1, nxlags).copyFrom(ttmp, 0);
+        x.extract(0, nf, nxlags).copyFrom(ttmp, 0);
     }
 
     @Override

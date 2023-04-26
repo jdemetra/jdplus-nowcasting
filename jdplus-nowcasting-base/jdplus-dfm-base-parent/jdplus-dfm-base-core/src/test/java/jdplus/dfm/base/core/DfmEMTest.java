@@ -33,6 +33,7 @@ import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
+import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.stats.DescriptiveStatistics;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +67,6 @@ public class DfmEMTest {
     private static void loadDavidModel() throws IOException {
         File file = Data.copyToTempFile(DfmEMTest.class.getResource("/transition.csv"));
         T = MatrixSerializer.read(file, "\t|,");
-//        System.out.println(T);
         file = Data.copyToTempFile(DfmEMTest.class.getResource("/tcovar.csv"));
         TVar = MatrixSerializer.read(file, "\t|,");
 //        System.out.println(TVar);
@@ -88,17 +88,22 @@ public class DfmEMTest {
         //transition equation
         int nb = 3, nl = 4, c = 24, nc = nb * nl;
         FastMatrix C = FastMatrix.make(nb, nc);
+        for (int i = 0; i < nb; ++i) {
+            for (int j = 0; j < nb; ++j) {
+                for (int l=0; l<nl; ++l){
+                    C.set(i, l*nb+j, T.get(12*i, 12*j+l) );
+                }
+            }
+        }
 
-        VarDescriptor var = new VarDescriptor(VarDescriptor.defaultCoefficients(nb, nl));
-//
-//        DynamicFactorModel.TransitionDescriptor tdesc = new DynamicFactorModel.TransitionDescriptor(nb, nl);
-//        for (int i = 0; i < nb; ++i) {
-//            DataBlock trow = TVar.row(i * 12).extract(0, nb, 12);
-//            DataBlock prow = tdesc.covar.row(i);
-//            prow.copy(trow);
-//        }
-//        dmodel.setTransition(tdesc);
-//
+        FastMatrix Q = FastMatrix.square(nb);
+        for (int i = 0; i < nb; ++i) {
+            DoubleSeq trow = TVar.row(i * 12).extract(0, nb, 12);
+            DataBlock prow = Q.row(i);
+            prow.copy(trow);
+        }
+        VarDescriptor var = new VarDescriptor(C, Q);
+
         // measurement equation
         int nv = 0;
         for (int i = 0; i < M.getRowsCount(); ++i) {
@@ -163,6 +168,29 @@ public class DfmEMTest {
     }
 
     public DfmEMTest() {
+
+    }
+
+    @Test
+    public void testEm() {
+        long t0=System.currentTimeMillis();
+        DfmEM em = DfmEM.builder()
+                .ssfInitialization(ISsfInitialization.Type.Zero)
+                .maxIter(100)
+                .build();
+        DynamicFactorModel model0 = em.initialize(dmodel, dfmdata);
+        long t1=System.currentTimeMillis();
+        System.out.println(t1-t0);
+//        System.out.println("");
+//        System.out.println(model0.getVar().getInnovationsVariance());
+//        System.out.println(model0.getVar().getCoefficients());
+//        for (MeasurementDescriptor desc : model0.getMeasurements()) {
+//            for (int i = 0; i < desc.getCoefficient().length(); ++i) {
+//                System.out.print(desc.getCoefficient(i));
+//                System.out.print('\t');
+//            }
+//            System.out.println(desc.getVariance());
+//        }
     }
 
 //    @Test
@@ -182,14 +210,14 @@ public class DfmEMTest {
         TsDomain domain = dfmdata.getCurrentDomain().drop(120, 12);
         initializer.setEstimationDomain(domain);
         DynamicFactorModel model0 = initializer.initialize(dmodel, dfmdata);
-        System.out.println(model0.getVar().getInnovationsVariance());
-        System.out.println(model0.getVar().getCoefficients());
-        for (MeasurementDescriptor desc : model0.getMeasurements()) {
-            for (int i = 0; i < desc.getCoefficient().length(); ++i) {
-                System.out.print(desc.getCoefficient(i));
-                System.out.print('\t');
-            }
-            System.out.println(desc.getVariance());
-        }
+//        System.out.println(model0.getVar().getInnovationsVariance());
+//        System.out.println(model0.getVar().getCoefficients());
+//        for (MeasurementDescriptor desc : model0.getMeasurements()) {
+//            for (int i = 0; i < desc.getCoefficient().length(); ++i) {
+//                System.out.print(desc.getCoefficient(i));
+//                System.out.print('\t');
+//            }
+//            System.out.println(desc.getVariance());
+//        }
     }
 }

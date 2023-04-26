@@ -30,8 +30,15 @@ import jdplus.toolkit.base.core.ssf.ISsfInitialization;
  */
 public class Initialization implements ISsfInitialization {
 
-    public static Initialization zero(int dim) {
-        return new Initialization(null, null, dim);
+    public static Initialization zero(Matrix V, int nxlags) {
+        int nf=V.getRowsCount();
+        int dim = nf * nxlags;
+        FastMatrix V0 = FastMatrix.square(dim);
+        for (int i = 0; i < nf; ++i) {
+            DataBlock cv = V0.column(i * nxlags).extract(0, nf, nxlags);
+            cv.set(V.column(i));
+        }
+        return new Initialization(null, V0, dim);
     }
 
     public static Initialization unconditional(Dynamics dynamics) {
@@ -43,7 +50,7 @@ public class Initialization implements ISsfInitialization {
         return new Initialization(a0, FastMatrix.of(V0), V0.getRowsCount());
     }
 
-    static FastMatrix of(Dynamics dynamics) {
+    public static FastMatrix of(Dynamics dynamics) {
         int nl = dynamics.nl(), nf = dynamics.nf();
         // We have to solve the steady state equation:
         // V = T V T' + Q

@@ -39,7 +39,7 @@ public class DfmProcessor {
         private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
         private int nxlags;
 
-        public Builder calcVariaraince(boolean var) {
+        public Builder calcVariance(boolean var) {
             this.calcVariance = var;
             return this;
         }

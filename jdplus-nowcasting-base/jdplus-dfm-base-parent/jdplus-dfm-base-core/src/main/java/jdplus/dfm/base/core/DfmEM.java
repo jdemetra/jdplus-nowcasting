@@ -17,7 +17,6 @@ import java.util.List;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.data.DoubleSeqCursor;
-import jdplus.toolkit.base.core.math.functions.bfgs.Bfgs;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.GeneralMatrix;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
@@ -84,6 +83,10 @@ public class DfmEM implements IDfmInitializer {
         public DfmEM build() {
             return new DfmEM(this);
         }
+    }
+    
+    public static Builder builder(){
+        return new Builder();
     }
 
     private final IDfmInitializer initializer;
@@ -228,8 +231,13 @@ public class DfmEM implements IDfmInitializer {
 
     @Override
     public DynamicFactorModel initialize(DynamicFactorModel rdfm, TsInformationSet data) {
+        this.dfm=rdfm;
         this.data = data;
-        this.nxlags = rdfm.getNlags() + 1;
+        this.nxlags = rdfm.minSsfLags() + 1;
+        this.processor=DfmProcessor.builder()
+                .calcVariance(true)
+                .initialization(initialization)
+                .build();
         modelSize = nxlags * rdfm.getNfactors();
         dataSize = data.getCurrentDomain().getLength();
         Efij = new DataBlock[modelSize * modelSize];
@@ -250,7 +258,7 @@ public class DfmEM implements IDfmInitializer {
         }
 
         // finishing
-        dfm = rdfm.normalize();
+        dfm = dfm.normalize();
         filter(false);
         processor.clear();
         return dfm;
@@ -264,14 +272,20 @@ public class DfmEM implements IDfmInitializer {
             Likelihood ll = results.likelihood(true);
             logLikelihood = ll.logLikelihood();
             if (adjust) {
-                dfm.rescaleVariances(ll.sigma2());
-                dfm.normalize();
+                dfm=dfm.rescaleVariances(ll.sigma2());
+                dfm=dfm.normalize();
             }
         } catch (RuntimeException err) {
+            System.out.println(err.getMessage());
         }
     }
 
     private boolean EStep() {
+        this.processor=DfmProcessor.builder()
+                .calcVariance(true)
+                .initialization(initialization)
+                .extendedLags(nxlags)
+                .build();
         if (!processor.process(dfm, data)) {
             return false;
         }

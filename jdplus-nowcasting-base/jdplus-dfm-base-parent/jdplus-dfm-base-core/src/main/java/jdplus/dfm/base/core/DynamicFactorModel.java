@@ -201,6 +201,16 @@ public class DynamicFactorModel {
     public List<MeasurementDescriptor> getMeasurements() {
         return Collections.unmodifiableList(measurements);
     }
+    
+    public int minSsfLags(){
+        int n=var.getNlags();
+        for (MeasurementDescriptor desc : measurements){
+            int l = desc.getType().getLength();
+            if (n<l)
+                n=l;
+        }
+        return n;
+    }
 
     /**
      *
@@ -209,6 +219,7 @@ public class DynamicFactorModel {
      * @return
      */
     public IMultivariateSsf ssfRepresentation(ISsfInitialization.Type initialization, int nlags) {
+        nlags=Math.max(nlags, minSsfLags());
         switch (initialization) {
             case Unconditional -> {
                 return SsfDfm.unconditionalSsf(var, measurements.toArray(MeasurementDescriptor[]::new), nlags);
