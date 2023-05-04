@@ -16,19 +16,20 @@
  */
 package jdplus.dfm.base.core;
 
-import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.core.math.functions.IParametricMapping;
-
-
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
- * @author Jean
+ * @author palatej
  */
-public interface IDfmMapping extends IParametricMapping<DynamicFactorModel> {
+public class DfmKernelTest {
+    
+    public DfmKernelTest() {
+    }
 
-    static final double EPS = 1e-8;
-
-    DoubleSeq map(DynamicFactorModel m);
+    @Test
+    public void testSomeMethod() {
+    }
     
 }

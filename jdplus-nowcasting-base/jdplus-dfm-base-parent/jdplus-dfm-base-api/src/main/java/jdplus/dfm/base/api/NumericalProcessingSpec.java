@@ -21,23 +21,23 @@ package jdplus.dfm.base.api;
  * @author palatej
  */
 @lombok.Value
-@lombok.Builder(builderClassName="Builder", toBuilder=true)
+@lombok.Builder(builderClassName = "Builder", toBuilder = true)
 public class NumericalProcessingSpec implements Cloneable {
-    
-    public static enum Method{
+
+    public static enum Method {
         BFGS,
         LBFGS,
         LEVENBERGMARQUARDT
     }
 
-    public static final int DEF_VERSION = 2, DEF_MAXITER = 1000, DEF_MAXSITER = 15,
+    public static final int DEF_VERSION = 2, DEF_MAXITER = 100, DEF_MAXSITER = 0,
             DEF_NITER = 5;
-    public static final Boolean DEF_BLOCK = true, DEF_MIXED=true, DEF_IVAR=false;
-    public static final double DEF_EPS = 1e-9;
-    
-    public static Builder builder(){
+    public static final Boolean DEF_BLOCK = true, DEF_MIXED = true, DEF_IVAR = false;
+    public static final double DEF_EPS = 1e-6;
+
+    public static Builder builder() {
         return new Builder()
-                 .maxIter(DEF_MAXITER)
+                .maxIter(DEF_MAXITER)
                 .maxInitialIter(DEF_MAXSITER)
                 .maxIntermediateIter(DEF_NITER)
                 .estimationByBlock(DEF_BLOCK)
@@ -46,13 +46,13 @@ public class NumericalProcessingSpec implements Cloneable {
                 .precision(DEF_EPS)
                 .method(Method.LEVENBERGMARQUARDT);
     }
-    
+
     private boolean enabled;
     private int maxIter, maxInitialIter, maxIntermediateIter;
     private boolean estimationByBlock, mixedEstimation, independentShocks;
     private double precision;
     private Method method;
 
-    public static final NumericalProcessingSpec DEFAULT_DISABLED=builder().build(),
-            DEFAULT_ENABLED=builder().enabled(true).build();
+    public static final NumericalProcessingSpec DEFAULT_DISABLED = builder().build(),
+            DEFAULT_ENABLED = builder().enabled(true).build();
 }

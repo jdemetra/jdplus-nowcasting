@@ -17,18 +17,21 @@
 package jdplus.dfm.base.core;
 
 import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.core.math.functions.IParametricMapping;
-
-
+import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.toolkit.base.core.ssf.StateStorage;
+import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
 
 /**
  *
- * @author Jean
+ * @author palatej
  */
-public interface IDfmMapping extends IParametricMapping<DynamicFactorModel> {
-
-    static final double EPS = 1e-8;
-
-    DoubleSeq map(DynamicFactorModel m);
+@lombok.Value
+@lombok.Builder(builderClassName="builder")
+public class DfmResults {
     
+    DynamicFactorModel dfm;
+    Likelihood likelihood;
+    DoubleSeq gradient;
+    Matrix hessian;
+    StateStorage smoothedStates;
 }

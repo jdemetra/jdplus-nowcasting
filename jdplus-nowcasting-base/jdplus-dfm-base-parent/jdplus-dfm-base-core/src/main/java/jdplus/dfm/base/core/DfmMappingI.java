@@ -1,12 +1,12 @@
 /*
- * Copyright 2013 National Bank of Belgium
+ * Copyright 2023 National Bank of Belgium
  * 
- * Licensed under the EUPL, Version 1.1 or – as soon they will be approved 
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved 
  * by the European Commission - subsequent versions of the EUPL (the "Licence");
  * You may not use this work except in compliance with the Licence.
  * You may obtain a copy of the Licence at:
  * 
- * http://ec.europa.eu/idabc/eupl
+ * https://joinup.ec.europa.eu/software/page/eupl
  * 
  * Unless required by applicable law or agreed to in writing, software 
  * distributed under the Licence is distributed on an "AS IS" basis,
@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.api.data.DoubleSeqCursor;
 import jdplus.toolkit.base.api.math.Complex;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.data.DataBlock;
@@ -28,22 +29,14 @@ import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.MatrixException;
 import jdplus.toolkit.base.core.math.matrices.decomposition.EigenSystem;
 import jdplus.toolkit.base.core.math.matrices.decomposition.IEigenSystem;
-import jdplus.toolkit.base.core.ssf.ISsfInitialization;
-import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
-import jdplus.toolkit.base.core.ssf.univariate.ISsfMeasurement;
-import lombok.NonNull;
 
 ///**
-// *
+// * Mapping for models with independent shocks in the VAR
 // * @author Jean Palate
 // */
-public class DfmMapping implements IDfmMapping {
-
-    static final double EPS = 1e-5;
+public class DfmMappingI implements IDfmMapping {
 
     private final DynamicFactorModel template;
-    private final ISsfInitialization.Type initialization;
-    private final int nxlags;
     // [0, nml[ loadings
     // [nml, nml+nm[ meas. variance (square roots)
     // [nml+nm, nml+nm+nb*nb*nl[ var parameters 
@@ -51,14 +44,14 @@ public class DfmMapping implements IDfmMapping {
     private final int np;
     private final int nml, nm, nb, nl;
     private final int l0, mv0, v0;
-    private final int immax, ifmax;
-    private final double cmax;
+    private final int ivmax;
+    private final double vmax;
 
     private DoubleSeq loadings(DoubleSeq p) {
         return l0 < 0 ? null : p.extract(l0, nml);
     }
 
-    private DoubleSeq vparams(DoubleSeq p) {
+    private DoubleSeq vcoefficients(DoubleSeq p) {
         return v0 < 0 ? null : p.extract(v0, nb * nb * nl);
     }
 
@@ -70,7 +63,7 @@ public class DfmMapping implements IDfmMapping {
         return l0 < 0 ? null : p.extract(l0, nml);
     }
 
-    private DataBlock vparams(DataBlock p) {
+    private DataBlock vcoefficients(DataBlock p) {
         return v0 < 0 ? null : p.extract(v0, nb * nb * nl);
     }
 
@@ -78,14 +71,12 @@ public class DfmMapping implements IDfmMapping {
         return mv0 < 0 ? null : p.extract(mv0, nm);
     }
 
-    public DfmMapping(DynamicFactorModel model, ISsfInitialization.Type initialization, int nxlags) {
-        this(model, initialization, nxlags, false, false);
+    public DfmMappingI(DynamicFactorModel model) {
+        this(model, false, false);
     }
 
-    public DfmMapping(DynamicFactorModel model, ISsfInitialization.Type initialization, int nxlags, final boolean mfixed, final boolean tfixed) {
-        template = model;
-        this.initialization = initialization;
-        this.nxlags = nxlags;
+    public DfmMappingI(DynamicFactorModel model, final boolean mfixed, final boolean tfixed) {
+        template = model.normalize();
         nb = template.getNfactors();
         nl = template.getNlags();
         // measurement: all loadings, all var
@@ -98,34 +89,31 @@ public class DfmMapping implements IDfmMapping {
             l0 = -1;
             mv0 = -1;
             v0 = 0;
-            immax = -1;
-            ifmax = -1;
-            cmax = 0;
+            ivmax = -1;
+            vmax = 0;
             p = nb * nb * nl;
         } else {
             int n = 0, m = 0;
-            int im = -1, f = -1;
-            double c = 0;
+            int iv = -1;
+            double v = 0;
             for (MeasurementDescriptor desc : template.getMeasurements()) {
+                if (desc.getVariance() > v) {
+                    v = desc.getVariance();
+                    iv = m;
+                }
                 for (int i = 0; i < nb; ++i) {
                     double cur = desc.getCoefficient(i);
                     if (!Double.isNaN(cur)) {
-                        if (Math.abs(cur) > Math.abs(c)) {
-                            c = cur;
-                            f = i;
-                            im = m;
-                        }
                         ++n;
                     }
                 }
                 ++m;
             }
             l0 = 0;
-            immax = im;
-            ifmax = f;
-            cmax = c;
-            nm = template.getMeasurementsCount();
-            nml = n - 1;
+            ivmax = iv;
+            vmax = v;
+            nm = template.getMeasurementsCount() - 1;
+            nml = n;
             mv0 = nml;
             p = nm + nml;
             if (tfixed) {
@@ -146,44 +134,46 @@ public class DfmMapping implements IDfmMapping {
     }
 
     @Override
-    public IMultivariateSsf map(DoubleSeq p) {
-        @NonNull
+    public DynamicFactorModel map(DoubleSeq p) {
         VarDescriptor var = template.getVar();
-        DoubleSeq vp = vparams(p);
+        DoubleSeq vp = vcoefficients(p);
         if (vp != null) {
             FastMatrix t = FastMatrix.of(var.getCoefficients());
             vp.copyTo(t.getStorage(), 0);
             var = new VarDescriptor(t);
         }
-
-        List<MeasurementDescriptor> m = new ArrayList<>();
-
+        List<MeasurementDescriptor> m;
         DoubleSeq l = loadings(p);
         DoubleSeq mv = mvars(p);
-        int i0 = 0, j0 = 0;
         if (l != null) {
+            m = new ArrayList<>();
+            DoubleSeqCursor lcursor = l.cursor();
+            DoubleSeqCursor vcursor = mv.cursor();
             int n = 0;
             for (MeasurementDescriptor desc : template.getMeasurements()) {
                 MeasurementDescriptor.Builder dbuilder = desc.toBuilder();
                 double[] c = desc.getCoefficient().toArray();
                 for (int k = 0; k < nb; ++k) {
                     if (!Double.isNaN(c[k])) {
-                        if (immax != n || ifmax != k) {
-                            c[k] = l.get(i0++);
-                        } else {
-                            c[k] = cmax;
-                        }
+                        c[k] = lcursor.getAndNext();
                     }
                 }
-                double x = mv.get(j0++);
-                m.add(dbuilder.coefficient(DoubleSeq.of(c))
-                        .variance(x * x)
-                        .build());
+                if (n != ivmax) {
+                    double x = vcursor.getAndNext();
+                    m.add(dbuilder.coefficient(DoubleSeq.of(c))
+                            .variance(x * x)
+                            .build());
+                } else {
+                    m.add(dbuilder.coefficient(DoubleSeq.of(c))
+                            .variance(vmax)
+                            .build());
+                }
                 ++n;
             }
+        } else {
+            m = template.getMeasurements();
         }
-        DynamicFactorModel dfm = new DynamicFactorModel(var, m);
-        return dfm.ssfRepresentation(initialization, nxlags);
+        return new DynamicFactorModel(var, m);
     }
 
     @Override
@@ -192,26 +182,27 @@ public class DfmMapping implements IDfmMapping {
         DataBlock p = DataBlock.make(np);
         DataBlock l = loadings(p);
         DataBlock mv = mvars(p);
-        int i0 = 0, j0 = 0;
         if (l != null) {
             int n = 0;
+            DoubleSeqCursor.OnMutable lcursor = l.cursor();
+            DoubleSeqCursor.OnMutable vcursor = mv.cursor();
             for (MeasurementDescriptor desc : m.getMeasurements()) {
                 for (int k = 0; k < nb; ++k) {
                     double c = desc.getCoefficient(k);
                     if (!Double.isNaN(c)) {
-                        if (n != immax || k != ifmax) {
-                            l.set(i0++, c);
-                        }
+                        lcursor.setAndNext(c);
                     }
                 }
-                mv.set(j0++, Math.sqrt(desc.getVariance()));
+                if (n != ivmax) {
+                    vcursor.setAndNext(Math.sqrt(desc.getVariance()));
+                }
                 ++n;
             }
         }
-        DataBlock vp = vparams(p);
-        if (vp != null) {
+        DataBlock vc = vcoefficients(p);
+        if (vc != null) {
             Matrix t = m.getVar().getCoefficients();
-            vp.copy(t);
+            vc.copy(t);
         }
         return p;
     }
@@ -220,7 +211,7 @@ public class DfmMapping implements IDfmMapping {
     public boolean checkBoundaries(DoubleSeq inparams) {
         // check the stability of VAR
         try {
-            DoubleSeq vp = vparams(inparams);
+            DoubleSeq vp = DfmMappingI.this.vcoefficients(inparams);
             if (vp == null) {
                 return true;
             }

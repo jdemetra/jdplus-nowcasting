@@ -80,13 +80,13 @@ public class DynamicFactorModel {
         } catch (MatrixException err) {
             return false;
         }
-        DfmMapping mapping = new DfmMapping(this, ISsfInitialization.Type.Zero, var.getNlags());
+        DfmMapping mapping = new DfmMapping(this);
         return mapping.checkBoundaries(mapping.getDefaultParameters());
     }
 
     /**
      * Rescale the model so that the variances of the transition shocks are
-     * equal to 1.The method divides each factor by the standard deviation of
+     * equal to 1. The method divides each factor by the standard deviation of
      * the corresponding transition shock and updates the different coefficients
      * accordingly.
      *
@@ -202,6 +202,10 @@ public class DynamicFactorModel {
         return Collections.unmodifiableList(measurements);
     }
     
+    /**
+     * @return Minimum number of lags computed for the ssf representation.
+     * A better implementation should use different numbers of lags for the different loadings
+     */
     public int minSsfLags(){
         int n=var.getNlags();
         for (MeasurementDescriptor desc : measurements){

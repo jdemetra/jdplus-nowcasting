@@ -213,12 +213,11 @@ public class PrincipalComponentsInitializer implements IDfmInitializer {
         DoubleSeq[] f = new DoubleSeq[nb];
         DoubleSeq[] e = new DoubleSeq[nb];
         FastMatrix M = FastMatrix.make(data.getRowsCount() - nl, nl * nb);
-        int c = 0;
         for (int i = 0; i < nb; ++i) {
             DataBlock cur = pc[i].getFactor(0);
             f[i] = cur.drop(nl, 0);
             for (int j = 1; j <= nl; ++j) {
-                M.column(c++).copy(cur.drop(nl - j, j));
+                M.column((j-1)*nb+i).copy(cur.drop(nl - j, j));
             }
         }
         LinearModel.Builder regmodel = LinearModel.builder();

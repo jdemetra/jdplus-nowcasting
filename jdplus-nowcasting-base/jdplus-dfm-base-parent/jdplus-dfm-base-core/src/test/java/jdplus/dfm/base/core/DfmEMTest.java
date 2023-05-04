@@ -53,7 +53,6 @@ public class DfmEMTest {
     private static Matrix T, TVar, MVar, D, O, Z, M;
     private static FastMatrix dd, ddrnd;
 
-//    // why static method? 
     private static void loadData() {   // DAVID: use a TsData[] to create a dfmdata object
 
         List<TsData> input = new ArrayList<>();

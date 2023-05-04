@@ -1,12 +1,12 @@
 /*
- * Copyright 2013 National Bank of Belgium
+ * Copyright 2023 National Bank of Belgium
  * 
- * Licensed under the EUPL, Version 1.1 or – as soon they will be approved 
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved 
  * by the European Commission - subsequent versions of the EUPL (the "Licence");
  * You may not use this work except in compliance with the Licence.
  * You may obtain a copy of the Licence at:
  * 
- * http://ec.europa.eu/idabc/eupl
+ * https://joinup.ec.europa.eu/software/page/eupl
  * 
  * Unless required by applicable law or agreed to in writing, software 
  * distributed under the Licence is distributed on an "AS IS" basis,
@@ -16,284 +16,372 @@
  */
 package jdplus.dfm.base.core;
 
+import internal.jdplus.dfm.base.core.DfmFunction;
+import internal.jdplus.dfm.base.core.DfmFunctionPoint;
+import jdplus.dfm.base.api.NumericalProcessingSpec;
+import jdplus.dfm.base.api.timeseries.TsInformationSet;
+import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.api.data.DoublesMath;
+import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.toolkit.base.api.timeseries.TsDomain;
+import jdplus.toolkit.base.core.data.DataBlock;
+import jdplus.toolkit.base.core.data.DataBlockIterator;
+import jdplus.toolkit.base.core.math.functions.FunctionMinimizer;
+import jdplus.toolkit.base.core.math.functions.IFunction;
+import jdplus.toolkit.base.core.math.functions.bfgs.Bfgs;
+import jdplus.toolkit.base.core.math.functions.levmar.LevenbergMarquardtMinimizer;
+import jdplus.toolkit.base.core.math.functions.ssq.ProxyMinimizer;
+import jdplus.toolkit.base.core.math.functions.ssq.SsqFunctionMinimizer;
+import jdplus.toolkit.base.core.math.matrices.FastMatrix;
+import jdplus.toolkit.base.core.ssf.ISsfInitialization;
+import jdplus.toolkit.base.core.ssf.multivariate.SsfMatrix;
+import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
 
-///**
-// *
-// * @author Jean Palate
-// */
-//public class DfmEstimator implements IDfmEstimator {
-//
-//    private static final String SIMPLIFIED = "Optimizing simplified model",
-//            MSTEP = "Optimizing measurements", VSTEP = "Optimizing Var model", ALL = "Optimizing all parameters";
-//    private int maxiter_ = 500;
-//    private boolean converged_;
-//    private boolean vunits_;
-//    private final IFunctionMinimizer min_;
-//    private int nstart_ = 15, nnext_ = 5;
-//    private TsDomain idom_;
-//    private boolean useBlockIterations_ = true, mixed_ = true;
-//    private Likelihood ll_;
-//    private DataBlock factors_;
-//
-//    public DfmEstimator() {
-//        min_ = new ProxyMinimizer(new LevenbergMarquardtMethod());
-//    }
-//
-//    public DfmEstimator(IFunctionMinimizer min) {
-//        min_ = min.exemplar();
-//    }
-//
-//    public TsDomain getEstimationDomain() {
-//        return idom_;
-//    }
-//
-//    public void setEstimationDomain(TsDomain dom) {
-//        idom_ = dom;
-//    }
-//
-//    public int getMaxIter() {
-//        return maxiter_;
-//    }
-//
-//    public int getMaxInitialIter() {
-//        return nstart_;
-//    }
-//
-//    public void setMaxInitialIter(int n) {
-//        nstart_ = n;
-//    }
-//    
-//    public void setPrecision(double eps){
-//        min_.setConvergenceCriterion(eps);
-//    }
-//    
-//    public double getPrecision(){
-//        return min_.getConvergenceCriterion();
-//    }
-//
-//    public int getMaxIntermediateIter() {
-//        return nnext_;
-//    }
-//
-//    public void setMaxIter(int iter) {
-//        maxiter_ = iter;
-//    }
-//
-//    public void setMaxIntermediateIter(int n) {
-//        nnext_ = n;
-//    }
-//
-//    public boolean isUsingBlockIterations() {
-//        return this.useBlockIterations_;
-//    }
-//
-//    public void setUsingBlockIterations(boolean block) {
-//        this.useBlockIterations_ = block;
-//    }
-//
-//    public boolean isMixedMethod() {
-//        return mixed_;
-//    }
-//
-//    public void setMixedMethod(boolean b) {
-//        mixed_ = b;
-//    }
-//
-//    public boolean isIndependentVarShocks() {
-//        return this.vunits_;
-//    }
-//
-//    public void setIndependentVarShocks(boolean iv) {
-//        this.vunits_ = iv;
-//    }
-//
-//    public boolean hasConverged() {
-//        return converged_;
-//    }
-//
-//    private void setMessage(String msg) {
-//
-//        if (min_ instanceof IProcessingHookProvider) {
-//            ((IProcessingHookProvider) min_).setHookMessage(msg);
-//        } else if (min_ instanceof ProxyMinimizer) {
-//            ISsqFunctionMinimizer core = ((ProxyMinimizer) min_).getCore();
-//            if (core instanceof IProcessingHookProvider) {
-//                ((IProcessingHookProvider) core).setHookMessage(msg);
-//            }
-//        }
-//    }
-//
-//    private void normalize(DynamicFactorModel model) {
-//        if (vunits_) {
-//            model.lnormalize();
-//        } else {
-//            model.normalize();
-//        }
-//    }
-//    
-//    private IDfmMapping mapping(DynamicFactorModel model, boolean mf, boolean vf) {
-//        if (vunits_)
-//            return new DfmMapping2(model, mf, vf);
-//        else
-//            return new DfmMapping(model, mf, vf);
-//    }
-//
-//    @Override
-//    public boolean estimate(final DynamicFactorModel dfm, TsInformationSet input) {
-//        converged_ = false;
-//        Matrix m = input.generateMatrix(idom_);
-//        MSsfAlgorithm algorithm = new MSsfAlgorithm();
-//        IMSsfData mdata = new MultivariateSsfData(m.subMatrix().transpose(), null);
-//        MSsfFunction fn;
-//        IDfmMapping mapping;
-//        MSsfFunctionInstance pt;
-//        int niter = 0;
-//        DynamicFactorModel model = dfm.clone();
-//        normalize(model);
-//        try {
-//            if (nstart_ > 0) {
+/**
+ *
+ * @author Jean Palate
+ */
+public class DfmEstimator implements IDfmEstimator {
+
+    private static final String SIMPLIFIED = "Optimizing simplified model",
+            MSTEP = "Optimizing measurements", VSTEP = "Optimizing Var model", ALL = "Optimizing all parameters";
+
+    public static final int DEF_MAXITER = 100, DEF_NSTART = 0, DEF_NNEXT = 5;
+
+    public static class Builder {
+
+        private int maxIter = DEF_MAXITER;
+        private FunctionMinimizer.Builder minimizer;
+        private int maxInitialIter = DEF_NSTART, maxIntermediateIter = DEF_NNEXT;
+        private boolean blockIterations = true, mixed = true, independentVarShocks = true;
+        private double eps = 1e-9;
+        private TsDomain edomain = null;
+        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
+
+        public Builder maxIterations(int maxiter) {
+            this.maxIter = maxiter;
+            return this;
+        }
+
+        public Builder maxInitialIter(int maxInitialIter) {
+            this.maxInitialIter = maxInitialIter;
+            return this;
+        }
+
+        public Builder maxIntermediateIter(int maxIntermediateIter) {
+            this.maxIntermediateIter = maxIntermediateIter;
+            return this;
+        }
+
+        public Builder blockIterations(boolean blocks) {
+            this.blockIterations = blocks;
+            return this;
+        }
+
+        public Builder mixed(boolean mixed) {
+            this.mixed = mixed;
+            return this;
+        }
+
+        public Builder independentVarShocks(boolean independentVarShocks) {
+            this.independentVarShocks = independentVarShocks;
+            return this;
+        }
+
+        public Builder minimizer(FunctionMinimizer.Builder minimizer) {
+            this.minimizer = minimizer;
+            return this;
+        }
+
+        public Builder estimationDomain(TsDomain domain) {
+            this.edomain = domain;
+            return this;
+        }
+
+        public Builder precision(double eps) {
+            this.eps = eps;
+            return this;
+        }
+
+        public Builder ssfInitialization(ISsfInitialization.Type initialization) {
+            this.initialization = initialization;
+            return this;
+        }
+
+        public DfmEstimator build() {
+            return new DfmEstimator(this);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static DfmEstimator of(NumericalProcessingSpec spec, ISsfInitialization.Type type) {
+
+        FunctionMinimizer.Builder minimizer;
+        minimizer = switch (spec.getMethod()) {
+            case BFGS ->
+                Bfgs.builder();
+            default ->
+                ProxyMinimizer.builder(LevenbergMarquardtMinimizer.builder());
+        };
+
+        return builder()
+                .minimizer(minimizer)
+                .maxInitialIter(spec.getMaxInitialIter())
+                .maxIntermediateIter(spec.getMaxIntermediateIter())
+                .mixed(spec.isMixedEstimation())
+                .blockIterations(spec.isEstimationByBlock())
+                .independentVarShocks(spec.isIndependentShocks())
+                .precision(spec.getPrecision())
+                .ssfInitialization(type)
+                .build();
+    }
+
+    private final int maxIter;
+    private final int maxInitialIter, maxIntermediateIter;
+    private final boolean blockIterations, mixed;
+    private final boolean independentVarShocks;
+    private final double eps;
+    private final FunctionMinimizer.Builder minimizer;
+    private final ISsfInitialization.Type initialization;
+    private final TsDomain edomain;
+
+    private boolean converged;
+    private DynamicFactorModel dfm;
+    private Likelihood likelihood;
+    private FastMatrix hessian;
+    private DoubleSeq gradient;
+
+    public DfmEstimator(Builder builder) {
+        this.maxIter = builder.maxIter;
+        this.maxInitialIter = builder.maxInitialIter;
+        this.maxIntermediateIter = builder.maxIntermediateIter;
+        this.blockIterations = builder.blockIterations;
+        this.independentVarShocks = builder.independentVarShocks;
+        this.mixed = builder.mixed;
+        this.minimizer = builder.minimizer;
+        this.edomain = builder.edomain;
+        this.initialization = builder.initialization;
+        this.eps = builder.eps;
+    }
+
+    public boolean hasConverged() {
+        return converged;
+    }
+
+    private DynamicFactorModel normalize(DynamicFactorModel model) {
+        if (independentVarShocks) {
+            return model.lnormalize();
+        } else {
+            return model.normalize();
+        }
+    }
+
+    private IDfmMapping mapping(DynamicFactorModel model, boolean mf, boolean vf) {
+        if (independentVarShocks) {
+            return new DfmMappingI(model, mf, vf);
+        } else {
+            return new DfmMapping(model, mf, vf);
+        }
+    }
+
+    @Override
+    public boolean estimate(final DynamicFactorModel dfm, TsInformationSet input) {
+        DynamicFactorModel model = dfm;
+        converged = false;
+        SsfMatrix data = new SsfMatrix(FastMatrix.of(input.generateMatrix(edomain)));
+        DfmFunction fn;
+        DfmFunctionPoint pt;
+        int niter = 0;
+        model = model.normalize();
+        FunctionMinimizer fnmin = null;
+        boolean log = false;
+        int skipEmVar = 10;
+        try {
+            if (maxInitialIter > 0) {
 //                setMessage(SIMPLIFIED);
-//                min_.setMaxIter(nstart_);
-//                SimpleDfmMapping smapping = new SimpleDfmMapping(model);
-//                smapping.validate(model);
-//                fn = new MSsfFunction(mdata, smapping, algorithm);
-//                min_.minimize(fn, fn.evaluate(smapping.map(model)));
-//                pt = (MSsfFunctionInstance) min_.getResult();
-//                double var = pt.getLikelihood().getSigma();
-//                DynamicFactorModel nmodel = ((DynamicFactorModel.Ssf) pt.ssf).getModel();
-//                if (nmodel.isValid()) {
-//                    nmodel.rescaleVariances(var);
-//                    model = nmodel;
-//                }
-//            }
-//            if (useBlockIterations_) {
-//                min_.setMaxIter(nnext_);
-//                while (true) {
-//                    normalize(model);
-//                    mapping =mapping(model, true, false);
-//                    fn = new MSsfFunction(mdata, mapping, algorithm);
+                fnmin = minimizer
+                        .maxIter(maxInitialIter)
+                        .functionPrecision(eps)
+                        .build();
+                SimpleDfmMapping smapping = new SimpleDfmMapping(model);
+                model = smapping.validate(model);
+
+                fn = DfmFunction.builder(data, smapping)
+                        .parallelProcessing(true)
+                        .symmetricNumericalDerivatives(false)
+                        .log(log)
+                        .initialization(initialization)
+                        .build();
+                DfmFunctionPoint curpt = fn.evaluate(smapping.map(model));
+                System.out.println(curpt.getLikelihood().logLikelihood());
+                fnmin.minimize(curpt);
+                pt = (DfmFunctionPoint) fnmin.getResult();
+                System.out.println(pt.getLikelihood().logLikelihood());
+                double var = pt.getLikelihood().sigma2();
+                model = pt.getCore().rescaleVariances(var);
+            }
+            if (blockIterations) {
+                fnmin = minimizer
+                        .maxIter(maxIntermediateIter)
+                        .functionPrecision(eps)
+                        .build();
+                while (true) {
+                    model = normalize(model);
+                    IDfmMapping mapping = mapping(model, true, false);
+                    fn = DfmFunction.builder(data, mapping)
+                            .parallelProcessing(true)
+                            .symmetricNumericalDerivatives(false)
+                            .log(log)
+                            .initialization(initialization)
+                            .build();
+
 //                    setMessage(VSTEP);
-//                    min_.minimize(fn, fn.evaluate(mapping.map(model)));
-//                    niter += min_.getIterCount();
-//                    pt = (MSsfFunctionInstance) min_.getResult();
-//                    DynamicFactorModel nmodel = ((DynamicFactorModel.Ssf) pt.ssf).getModel();
-//                    double var = pt.getLikelihood().getSigma();
-//                    model = nmodel;
-//                    model.rescaleVariances(var);
-//                    normalize(model);
-//                    if (mixed_) {
-//                        DfmEM2 em = new DfmEM2(null);
-//                        em.setEstimateVar(false);
-//                        em.setMaxIter(nnext_);
-//                        em.initialize(model, input);
-//                    } else {
-//                        mapping = mapping(model, false, true);
-//                        fn = new MSsfFunction(mdata, mapping, algorithm);
+                    pt = fn.evaluate(mapping.map(model));
+                    fnmin.minimize(pt);
+//                    niter += fnmin.getIterCount();
+                    pt = (DfmFunctionPoint) fnmin.getResult();
+                    System.out.println(pt.getLikelihood().logLikelihood());
+                    double var = pt.getLikelihood().sigma2();
+                    model = pt.getCore().rescaleVariances(var);
+                    model = normalize(model);
+                    if (mixed) {
+                        double ll0 = pt.getLikelihood().logLikelihood();
+                        DfmEM em = DfmEM.builder()
+                                .maxIter(maxIntermediateIter)
+                                .ssfInitialization(initialization)
+                                .fixedVar(skipEmVar<=0)
+                                .build();
+                        model = em.initialize(model, input);
+                        double ll1 = em.getFinalLogLikelihood();
+                        if (ll1 < ll0) {
+                            --skipEmVar;
+                        } 
+                    }else {
+                        mapping = mapping(model, false, true);
+                        fn = DfmFunction.builder(data, mapping)
+                                .parallelProcessing(true)
+                                .symmetricNumericalDerivatives(false)
+                                .log(log)
+                                .initialization(initialization)
+                                .build();
 //                        setMessage(MSTEP);
-//                        min_.minimize(fn, fn.evaluate(mapping.map(model)));
-//                        niter += min_.getIterCount();
-//                        pt = (MSsfFunctionInstance) min_.getResult();
-//                        nmodel = ((DynamicFactorModel.Ssf) pt.ssf).getModel();
-//                        var = pt.getLikelihood().getSigma();
-//                        model = nmodel;
-//                        model.rescaleVariances(var);
-//                        normalize(model);
-//
-//                    }
-//                    mapping = mapping(model, false, false);
-//                    fn = new MSsfFunction(mdata, mapping, algorithm);
+                        fnmin.minimize(fn.evaluate(mapping.map(model)));
+//                       niter += mininmizer.getIterCount();
+                        pt = (DfmFunctionPoint) fnmin.getResult();
+                        System.out.println(pt.getLikelihood().logLikelihood());
+                        var = pt.getLikelihood().sigma2();
+                        model = pt.getCore().rescaleVariances(var);
+                        model = normalize(model);
+                    }
+                    mapping = mapping(model, false, false);
+                    fn = DfmFunction.builder(data, mapping)
+                            .parallelProcessing(true)
+                            .symmetricNumericalDerivatives(false)
+                            .log(log)
+                            .initialization(initialization)
+                            .build();
 //                    setMessage(ALL);
-//                    converged_ = min_.minimize(fn, fn.evaluate(mapping.map(model)))
-//                            && min_.getIterCount() < nnext_;
-//                    niter += min_.getIterCount();
-//                    pt = (MSsfFunctionInstance) min_.getResult();
-//                    nmodel = ((DynamicFactorModel.Ssf) pt.ssf).getModel();
-//                    var = pt.getLikelihood().getSigma();
-//                    boolean stop = ll_ != null && Math.abs(ll_.getLogLikelihood() - pt.getLikelihood().getLogLikelihood()) < 1e-9;
-//                    ll_ = pt.getLikelihood();
-//                    model = nmodel.clone();
-//                    model.rescaleVariances(var);
-//                    if (converged_ || niter >= maxiter_ || stop) {
-//                        break;
-//                    }
-//                }
-//            } else {
-//                normalize(model);
-//                mapping =mapping(model, false, false);
-//                fn = new MSsfFunction(mdata, mapping, algorithm);
-//                min_.setMaxIter(maxiter_);
+                    converged = fnmin.minimize(fn.evaluate(mapping.map(model)));
+//                    niter += mininmizer.getIterCount();
+                    pt = (DfmFunctionPoint) fnmin.getResult();
+                    System.out.println(pt.getLikelihood().logLikelihood());
+                    var = pt.getLikelihood().sigma2();
+                    model = pt.getCore().rescaleVariances(var);
+                    model = normalize(model);
+                    boolean stop = likelihood != null && Math.abs(likelihood.logLikelihood() - pt.getLikelihood().logLikelihood()) < eps;
+                    likelihood = pt.getLikelihood();
+                    if (niter >= maxIter || stop) {
+                        break;
+                    }
+                }
+            } else {
+                model = normalize(model);
+                IDfmMapping mapping = mapping(model, false, false);
+                fn = DfmFunction.builder(data, mapping)
+                        .parallelProcessing(true)
+                        .symmetricNumericalDerivatives(false)
+                        .initialization(initialization)
+                        .log(log)
+                        .build();
+                fnmin = minimizer
+                        .maxIter(maxIter)
+                        .functionPrecision(eps)
+                        .build();
 //                setMessage(ALL);
-//                converged_ = min_.minimize(fn, fn.evaluate(mapping.map(model)));
-//                pt = (MSsfFunctionInstance) min_.getResult();
-//                double var = pt.getLikelihood().getSigma();
-//                model = ((DynamicFactorModel.Ssf) pt.ssf).getModel().clone();
-//                model.rescaleVariances(var);
-//                ll_ = pt.getLikelihood();
-//            }
-//            return true;
-//        } catch (Exception err) {
-//            return false;
-//        } finally {
-//            normalize(model);
-//            dfm.copy(model);
-//            IDfmMapping fmapping = mapping(model, false, false);
-//            IReadDataBlock mp = fmapping.parameters();
-//            IReadDataBlock up = min_.getResult().getParameters();
-//            factors_ = new DataBlock(mp.getLength());
-//            for (int i = 0; i < factors_.getLength(); ++i) {
-//                factors_.set(i, mp.get(i) / up.get(i));
-//            }
-//        }
-//    }
-//
-//    @Override
-//    public Matrix getHessian() {
-//        Matrix h = min_.getCurvature();
-//        if (h != null && !isLogLikelihood()) {
-//            // we have to correct the hessian 
-//            int ndf = ll_.getN() - h.getRowsCount();
-//            h = h.times(.5 * ndf / min_.getObjective());
-//        }
-//        DataBlockIterator rows = h.rows(), cols = h.columns();
-//        DataBlock row = rows.getData(), col = cols.getData();
-//        do {
-//            row.mul(factors_);
-//        } while (rows.next());
-//        do {
-//            col.mul(factors_);
-//        } while (cols.next());
-//        return h;
-//    }
-//
-//    @Override
-//    public DataBlock getGradient() {
-//        DataBlock grad = new DataBlock(min_.getGradient());
-//        // the 
-//        if (!isLogLikelihood()) {
-//            // we have to correct the gradient 
-//            int ndf = ll_.getN() - grad.getLength();
-//            grad.mul(-.5 * ndf / min_.getObjective());
-//        } else {
-//            grad.chs();
-//        }
-//        grad.mul(factors_);
-//        return grad;
-//    }
-//
-//    public double getObjective() {
-//        return min_.getObjective();
-//    }
-//
-//    public Likelihood geLikelihood() {
-//        return ll_;
-//    }
-//
-//    public boolean isLogLikelihood() {
-//        MSsfAlgorithm algorithm = new MSsfAlgorithm();
-//        if (min_ instanceof ProxyMinimizer) {
-//            return false;
-//        } else {
-//            return !algorithm.isUsingSsq();
-//        }
-//    }
-//}
+                converged = fnmin.minimize(fn.evaluate(mapping.map(model)));
+                pt = (DfmFunctionPoint) fnmin.getResult();
+                double var = pt.getLikelihood().sigma2();
+                model = pt.getCore().rescaleVariances(var);
+                likelihood = pt.getLikelihood();
+            }
+            return true;
+        } catch (Exception err) {
+            return false;
+        } finally {
+            model = normalize(model);
+            this.dfm = model;
+            if (fnmin != null) {
+                finalizeProcessing(fnmin);
+            }
+        }
+    }
+
+    private void finalizeProcessing(FunctionMinimizer fnmin) {
+        IDfmMapping fmapping = mapping(dfm, false, false);
+        DoubleSeq mp = fmapping.map(dfm);
+        DoubleSeq up = fnmin.getResult().getParameters();
+        DoubleSeq factors = DoublesMath.divide(mp, up);
+
+        DfmFunction function = (DfmFunction) fnmin.getResult().getFunction();
+        boolean log = function.isLog();
+
+        FastMatrix h = fnmin.curvatureAtMinimum();
+        if (h != null) {
+            if (!log) {
+                // we have to correct the hessian 
+                int ndf = likelihood.dim() - h.getRowsCount();
+                h = h.times(.5 * ndf / fnmin.getObjective());
+                DataBlockIterator rows = h.columnsIterator(), cols = h.columnsIterator();
+                while (rows.hasNext()) {
+                    rows.next().mul(factors);
+                }
+                while (cols.hasNext()) {
+                    cols.next().mul(factors);
+                }
+            }
+            hessian = h;
+        }
+        DataBlock grad = DataBlock.of(fnmin.gradientAtMinimum());
+        if (grad != null) {
+            if (!log) {
+                // we have to correct the gradient 
+                int ndf = likelihood.dim() - grad.length();
+                grad.mul(-.5 * ndf / fnmin.getObjective());
+                grad.mul(factors);
+            }
+            gradient = grad;
+        }
+    }
+
+    @Override
+    public Matrix getHessian() {
+        return this.hessian;
+    }
+
+    @Override
+    public DoubleSeq getGradient() {
+        return this.gradient;
+    }
+
+    public Likelihood geLikelihood() {
+        return likelihood;
+    }
+    
+    @Override
+    public DynamicFactorModel getEstimatedModel(){
+        return dfm;
+    }
+}

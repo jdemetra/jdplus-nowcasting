@@ -1,7 +1,18 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright 2023 National Bank of Belgium
+ * 
+ * Licensed under the EUPL, Version 1.2 or – as soon they will be approved 
+ * by the European Commission - subsequent versions of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ * 
+ * https://joinup.ec.europa.eu/software/page/eupl
+ * 
+ * Unless required by applicable law or agreed to in writing, software 
+ * distributed under the Licence is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and 
+ * limitations under the Licence.
  */
 package jdplus.dfm.base.core;
 
@@ -14,6 +25,7 @@ import jdplus.toolkit.base.core.data.DataBlock;
 
 import java.util.EnumMap;
 import java.util.List;
+import jdplus.dfm.base.api.EmSpec;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.data.DoubleSeqCursor;
@@ -45,6 +57,7 @@ public class DfmEM implements IDfmInitializer {
 //        private boolean fixedInitialConditions = true
         private ISsfInitialization.Type initialization = ISsfInitialization.Type.Zero;
 //        private boolean computeAll = true;
+        private boolean fixedVar = false;
 
         public Builder initializer(IDfmInitializer initializer) {
             this.initializer = initializer;
@@ -66,6 +79,11 @@ public class DfmEM implements IDfmInitializer {
             return this;
         }
 
+        public Builder fixedVar(boolean fixed) {
+            this.fixedVar = fixed;
+            return this;
+        }
+
 //        public Builder fixedInitialConditions(boolean fic) {
 //            this.fixedInitialConditions = fic;
 //            return this;
@@ -84,9 +102,16 @@ public class DfmEM implements IDfmInitializer {
             return new DfmEM(this);
         }
     }
-    
-    public static Builder builder(){
+
+    public static Builder builder() {
         return new Builder();
+    }
+
+    public static DfmEM of(EmSpec spec) {
+        return builder()
+                .maxIter(spec.getMaxIter())
+                .precision(spec.getPrecision())
+                .build();
     }
 
     private final IDfmInitializer initializer;
@@ -95,6 +120,7 @@ public class DfmEM implements IDfmInitializer {
     private final double eps;
 //    private final boolean fixedInitialConditions;
 //    private final boolean computeAll;
+    private final boolean fixedVar;
     private final ISsfInitialization.Type initialization;
 
     private DynamicFactorModel dfm;
@@ -119,6 +145,7 @@ public class DfmEM implements IDfmInitializer {
 //        this.fixedInitialConditions = builder.fixedInitialConditions;
 //        this.computeAll = builder.computeAll;
         this.initialization = builder.initialization;
+        this.fixedVar = builder.fixedVar;
     }
 
     public double getFinalLogLikelihood() {
@@ -231,10 +258,10 @@ public class DfmEM implements IDfmInitializer {
 
     @Override
     public DynamicFactorModel initialize(DynamicFactorModel rdfm, TsInformationSet data) {
-        this.dfm=rdfm;
+        this.dfm = rdfm;
         this.data = data;
-        this.nxlags = rdfm.minSsfLags() + 1;
-        this.processor=DfmProcessor.builder()
+        this.nxlags = rdfm.minSsfLags();
+        this.processor = DfmProcessor.builder()
                 .calcVariance(true)
                 .initialization(initialization)
                 .build();
@@ -272,16 +299,15 @@ public class DfmEM implements IDfmInitializer {
             Likelihood ll = results.likelihood(true);
             logLikelihood = ll.logLikelihood();
             if (adjust) {
-                dfm=dfm.rescaleVariances(ll.sigma2());
-                dfm=dfm.normalize();
+                dfm = dfm.rescaleVariances(ll.sigma2());
+                dfm = dfm.normalize();
             }
         } catch (RuntimeException err) {
-            System.out.println(err.getMessage());
         }
     }
 
     private boolean EStep() {
-        this.processor=DfmProcessor.builder()
+        this.processor = DfmProcessor.builder()
                 .calcVariance(true)
                 .initialization(initialization)
                 .extendedLags(nxlags)
@@ -309,7 +335,7 @@ public class DfmEM implements IDfmInitializer {
         List<MeasurementDescriptor> loading = mloadings();
         VarDescriptor var = mvar();
         DynamicFactorModel tmp = new DynamicFactorModel(var, loading);
-        if (tmp.isValid()) {
+        if (fixedVar || tmp.isValid()) {
             dfm = tmp;
             return true;
         } else {
@@ -430,6 +456,8 @@ public class DfmEM implements IDfmInitializer {
     }
 
     private VarDescriptor mvar() {
+        if (fixedVar)
+            return dfm.getVar();
         // analytical optimization
         int nl = dfm.getNlags();
         int nf = dfm.getNfactors();
@@ -474,286 +502,7 @@ public class DfmEM implements IDfmInitializer {
         Q.sub(Y);
         Q.mul(1.0 / dataSize);
 
-//        if (!fixedInitialConditions && dfm.getInitialization() == ISsfInitialization.Type.Unconditional) {
-//            Bfgs bfgs = Bfgs.builder()
-//                    .maxIter(maxNumericalIter)
-//                    .build();
-//            //bfgs.setLineSearch(new SimpleLineSearch());
-//            LL2 fn = new LL2();
-//            LL2.Instance cur = fn.current();
-//            bfgs.minimize(cur);
-//            LL2.Instance ofn = (LL2.Instance) bfgs.getResult();
-//            if (ofn != null && cur.getValue() > ofn.getValue()) {
-//                C = ofn.V;
-//                Q = ofn.Q;
-//            }
-//        }
         return new VarDescriptor(A, Q);
     }
 
-//    // Real function corresponding to the second part of the likelihood
-//    class LL2 implements IFunction {
-//
-//        private final Table<FastMatrix> allK;
-//        private final FastMatrix K0;
-//
-//        LL2() {
-//            // computes  results independent of the VAR parameters: K(i,j) = sum(f(i,j), t)
-//            VarDescriptor var = dfm.getVarDescriptor();
-//            int n = dfm.getBlockLength(), nc = var.getNlags(), nf = dfm.getNfactors();
-//            int p = 1 + nc;
-//            allK = new Table<>(p, p);
-//            for (int i = 0; i < p; ++i) {
-//                allK.set(i, i, calcK(i, i));
-//                for (int j = 0; j < i; ++j) {
-//                    FastMatrix m = calcK(i, j);
-//                    allK.set(i, j, m);
-//                    allK.set(j, i, GeneralMatrix.transpose(m));
-//                }
-//            }
-////          int n = dfm.getBlockLength(), nc = n-1, nf = dfm.getNfactors();
-//            K0 = FastMatrix.square(nc * nf);
-//            StateStorage ss = processor.getSmoothingResults();
-////           int del = 1;
-//            int del = n - nc;
-//            for (int i = 0; i < nf; ++i) {
-//                for (int k = 0; k < nc; ++k) {
-//                    for (int j = 0; j < nf; ++j) {
-//                        for (int l = 0; l < nc; ++l) {
-//                            double v = efifj(ss, i * n + k + del, j * n + l + del).get(0);
-//                            K0.set(i * nc + k, j * nc + l, v);
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        Instance current() {
-//            return new Instance();
-//        }
-//
-//        FastMatrix K(int i, int j) {
-//            return allK.get(i, j);
-//        }
-//
-//        /**
-//         * computes sum(t|f(i+k*len, j+l*len)
-//         *
-//         * @param i The first lag
-//         * @param j The second lag
-//         * @return
-//         */
-//        private FastMatrix calcK(int i, int j) {
-//            int n = dfm.getNfactors();
-//            int len = dfm.getBlockLength();
-//            StateStorage ss = processor.getSmoothingResults();
-//            FastMatrix K = FastMatrix.square(n);
-//            int nlags = dfm.getNlags();
-//            for (int k = 0; k < n; ++k) {
-//                for (int l = 0; l < n; ++l) {
-//                    double s = efifj(ss, i + k * len, j + l * len).sum();
-////                    // add first ef...
-//                    for (int u = 1; u < len - nlags; ++u) {
-//                        s += efifj(ss, i + u + k * len, j + u + l * len).get(0);
-//                    }
-//                    K.set(k, l, s);
-//                }
-//            }
-//            return K;
-//        }
-//
-//        @Override
-//        public Instance evaluate(DoubleSeq parameters) {
-//            return new Instance(parameters);
-//        }
-//
-//        @Override
-//        public IParametersDomain getDomain() {
-//            int nf = dfm.getNfactors();
-//            int nl = dfm.getNlags();
-//            return new DefaultDomain(nf * nf * nl + nf * (nf + 1) / 2, 1e-6);
-//        }
-//
-//        public class Instance implements IFunctionPoint {
-//
-//            private final FastMatrix Q, lQ, V; // lQ = cholesky factor of Q
-//            private final DataBlock p;
-//            private final double val;
-//            private final FastMatrix lv0;
-//            private final FastMatrix[] LA;
-//            private double v0, v1, v2, v3;
-//
-//            public Instance(DoubleSeq p) {
-//                this.p = DataBlock.of(p);
-//                VarDescriptor var = dfm.getVar();
-//                int nf = var.getNfactors(), nl = var.getNlags();
-//                V = FastMatrix.make(nf, nf * nl);
-//                Q = FastMatrix.make(nf, nf * nl);
-//                int vlen = V.size();
-//                this.p.range(0, vlen).copyTo(V.getStorage(), 0);
-//                for (int i = 0, j = vlen; i < nf; j += nf - i, i++) {
-//                    Q.column(i).drop(i, 0).copy(this.p.range(j, j + nf - i));
-//                }
-//                SymmetricMatrix.fromLower(Q);
-//                lQ = Q.deepClone();
-//                SymmetricMatrix.lcholesky(lQ);
-//                lv0 = calclv0();
-//                LA = calcLA();
-//                val = calc();
-//            }
-//
-//            public Instance() {
-//                @NonNull VarDescriptor var = dfm.getVar();
-//                this.V = FastMatrix.of(var.getCoefficients());
-//                this.Q = FastMatrix.of(var.getInnovationsVariance());
-//                int nf = dfm.getNfactors();
-//                int vlen = V.size();
-//                double[] buffer = new double[vlen + nf * (nf + 1) / 2];
-//                V.copyTo(buffer, 0);
-//                p = DataBlock.of(buffer);
-//                for (int i = 0, j = vlen; i < nf; j += nf - i, i++) {
-//                    p.range(j, j + nf - i).copy(Q.column(i).drop(i, 0));
-//                }
-//                this.lQ = Q.deepClone();
-//                SymmetricMatrix.lcholesky(lQ);
-//                lv0 = calclv0();
-//                LA = calcLA();
-//                val = calc();
-//            }
-//
-//            private double calc() {
-//                v0 = calcdetv0();
-//                v1 = calcssq0();
-//                v2 = calcdetq();
-//                v3 = calcssq();
-//                return v0 + v1 + v2 + v3;
-//            }
-//
-//            private FastMatrix A(int i) {
-//                VarDescriptor var = dfm.getVar();
-//                int nf = var.getNfactors(), nl = var.getNlags();
-//                if (i == 0) {
-//                    return FastMatrix.identity(nf);
-//                } else {
-//                    FastMatrix a = FastMatrix.square(nf);
-//                    for (int j = 0; j < nf; ++j) {
-//                        a.column(j).copy(V.column(i - 1 + j * nl));
-//                    }
-//                    a.chs();
-//                    return a;
-//                }
-//            }
-//
-//            @Override
-//            public IFunctionDerivatives derivatives() {
-//                return new NumericalDerivatives(this, false, true);
-//            }
-//
-//            @Override
-//            public DoubleSeq getParameters() {
-//                return p;
-//            }
-//
-//            @Override
-//            public double getValue() {
-//                return val; //To change body of generated methods, choose Tools | Templates.
-//            }
-//
-//            private double calcssq0() {
-//                // computes f0*f0 x V^-1
-//                // V^-1 = (LL')^-1 = L'^-1*L^-1
-//                FastMatrix lower = LowerTriangularMatrix.inverse(lv0);
-//                FastMatrix iv0 = SymmetricMatrix.LtL(lower);
-//                return iv0.dot(K0);
-//
-//            }
-//
-//            private double calcdetv0() {
-//                LogSign sumLog = LogSign.of(lv0.diagonal());
-//                if (!sumLog.isPositive()) {
-//                    throw new DfmException();
-//                }
-//                return 2 * sumLog.getValue();
-//            }
-//
-//            private double calcdetq() {
-//                LogSign sumLog = LogSign.of(lQ.diagonal());
-//                if (!sumLog.isPositive()) {
-//                    throw new DfmException();
-//                }
-//                return (dataSize + dfm.getBlockLength() - dfm.getNlags() - 1) * 2 * sumLog.getValue();
-////               return dataSize * 2 * sumLog.value;
-//            }
-//
-//            private double calcssq() {
-//                int nl = 1 + dfm.getVarDescriptor().getNlags();
-//                int nf = dfm.getNfactors();
-//                double ssq = 0;
-//                FastMatrix aqa = FastMatrix.square(nf);
-//                for (int i = 0; i < nl; ++i) {
-//                    SymmetricMatrix.XtX(LA[i], aqa);
-//                    ssq += K(i, i).dot(aqa);
-//                    for (int j = 0; j < i; ++j) {
-//                        GeneralMatrix.setAtB(LA[i], LA[j], aqa);
-//                        ssq += 2 * K(i, j).dot(aqa);
-//                    }
-//                }
-//                return ssq;
-//            }
-//
-//            private FastMatrix calclv0() {
-//                switch (dfm.getInitialization()) {
-//                    case UserDefined -> {
-//                        return FastMatrix.of(dfm.getInitialVariance());
-//                    }
-//                    case Unconditional -> {
-//                        // compute the initial covar. We reuse the code of DynamicFactorModel
-//                        DynamicFactorModel.Builder builder = dfm.toBuilder();
-//                        DynamicFactorModel tmp = builder.clearMeasurements()
-//                                .nlags(dfm.getVarDescriptor().getNlags())
-//                                .var(dfm.getVar().toBuilder()
-//                                        .coefficients(V)
-//                                        .innovationsVariance(Q)
-//                                        .buildWithoutValidation())
-//                                .build();
-//
-//                        try {
-//                            int n = tmp.getNfactors() * tmp.getBlockLength();
-//                            FastMatrix cov = FastMatrix.square(n);
-//                            tmp.ssfRepresentation().initialization().Pf0(cov);
-//                            SymmetricMatrix.lcholesky(cov);
-//                            LowerTriangularMatrix.toLower(cov);
-//                            return cov;
-//                        } catch (MatrixException err) {
-//                            throw new DfmException();
-//                        }
-//                    }
-//                    default -> {
-//                        return null;
-//                    }
-//                }
-//
-//            }
-//
-//            /**
-//             * AQA = A'(i)*Q^-1*A(j) = A"(i)*L'^-1*L^-1*A We compute here L^-1*A
-//             */
-//            private FastMatrix[] calcLA() {
-//                FastMatrix[] M = new FastMatrix[1 + dfm.getVar().getNlags()];
-//                for (int i = 0; i < M.length; ++i) {
-//                    FastMatrix ai = A(i);
-//                    // L^-1*A = B or  L B = A
-//                    LowerTriangularMatrix.solveLX(lQ, ai);
-//                    M[i] = ai;
-//                }
-//                return M;
-//            }
-//
-//            @Override
-//            public IFunction getFunction() {
-//                return LL2.this;
-//            }
-//        }
-//    }
-//
 }

@@ -109,7 +109,7 @@ public class Initialization implements ISsfInitialization {
 
         for (int r = 0; r < nf; ++r) {
             for (int c = 0; c < nf; ++c) {
-                fullCov.extract(r * nlx, r * nlx + nl, c * nlx, c * nlx + nl).copy(cov.extract(r * nl, (r + 1) * nl, c * nl, (c + 1) * nl));
+                fullCov.extract(r * nlx, nl, c * nlx, nl).copy(cov.extract(r * nl, nl, c * nl, nl));
             }
         }
         for (int i = nl; i < nlx; ++i) {
