@@ -198,7 +198,7 @@ public class DfmEstimator implements IDfmEstimator {
         model = model.normalize();
         FunctionMinimizer fnmin = null;
         boolean log = false;
-        int skipEmVar = 10;
+        int skipEmVar = 5;
         try {
             if (maxInitialIter > 0) {
 //                setMessage(SIMPLIFIED);
