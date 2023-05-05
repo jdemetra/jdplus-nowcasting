@@ -231,7 +231,7 @@ public class DfmMapping implements IDfmMapping {
             mvinnovations(v, vi);
             FastMatrix t = FastMatrix.make(nb, nb * nl);
             vc.copyTo(t.getStorage(), 0);
-            var = new VarDescriptor(t, v);
+            var = new VarDescriptor(t, v, var.getInitialization());
         }
         return new DynamicFactorModel(var, m);
     }

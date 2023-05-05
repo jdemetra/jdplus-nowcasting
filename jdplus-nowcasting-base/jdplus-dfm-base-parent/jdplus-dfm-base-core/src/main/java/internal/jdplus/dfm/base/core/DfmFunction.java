@@ -37,7 +37,6 @@ public class DfmFunction implements LikelihoodFunction<Likelihood> {
         private final IDfmMapping mapping;
         private final IMultivariateSsfData data;
         private boolean log = false, mt = false, sym = false;
-        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
 
         private Builder(final IMultivariateSsfData data, final IDfmMapping mapping) {
             this.data = data;
@@ -51,11 +50,6 @@ public class DfmFunction implements LikelihoodFunction<Likelihood> {
 
         public Builder log(boolean log) {
             this.log = log;
-            return this;
-        }
-
-        public Builder initialization(ISsfInitialization.Type initialization) {
-            this.initialization = initialization;
             return this;
         }
 
@@ -76,7 +70,6 @@ public class DfmFunction implements LikelihoodFunction<Likelihood> {
     private final IDfmMapping mapping; // mapping from an array of double to an object S
     private final IMultivariateSsfData data;
     private final boolean log, mt, sym;
-    private final ISsfInitialization.Type initialization;
 
     private DfmFunction(Builder builder) {
         this.data = builder.data;
@@ -84,7 +77,6 @@ public class DfmFunction implements LikelihoodFunction<Likelihood> {
         this.log = builder.log;
         this.mt = builder.mt;
         this.sym = builder.sym;
-        this.initialization = builder.initialization;
     }
 
     @Override
@@ -115,10 +107,6 @@ public class DfmFunction implements LikelihoodFunction<Likelihood> {
 
     public IDfmMapping getMapping() {
         return mapping;
-    }
-
-    public ISsfInitialization.Type getInitialization() {
-        return initialization;
     }
 
     /**

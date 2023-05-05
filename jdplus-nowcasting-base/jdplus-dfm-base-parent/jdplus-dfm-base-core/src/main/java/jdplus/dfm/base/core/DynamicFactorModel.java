@@ -35,37 +35,34 @@ import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
  *
  * @author Jean Palate
  */
+@lombok.Value
+@lombok.Builder(builderClassName="Builder")
 public class DynamicFactorModel {
 
     /**
      * Description of the hidden VAR model
      */
-    private final VarDescriptor var;
+    @lombok.With
+    @lombok.NonNull
+    private VarDescriptor var;
 
     /**
      * Measurement equation
      */
-    private final List<MeasurementDescriptor> measurements = new ArrayList<>();
+    @lombok.Singular
+    private List<MeasurementDescriptor> measurements;
 
-    public DynamicFactorModel(VarDescriptor var, Collection<MeasurementDescriptor> measurements) {
-        this.var = var;
-        this.measurements.addAll(measurements);
-    }
-
-    private DynamicFactorModel(VarDescriptor var) {
-        this.var = var;
-    }
 
     public DynamicFactorModel rescaleVariances(double cvar) {
         if (cvar == 1) {
             return this;
         }
-        DynamicFactorModel nmodel = new DynamicFactorModel(var.rescaleVariance(cvar));
-
-        for (MeasurementDescriptor m : measurements) {
-            nmodel.measurements.add(m.rescaleVariance(cvar));
+        
+        Builder builder = builder().var(var.rescaleVariance(cvar));
+         for (MeasurementDescriptor m : measurements) {
+            builder.measurement(m.rescaleVariance(cvar));
         }
-        return nmodel;
+        return builder.build();
     }
 
     public boolean isValid() {
@@ -98,8 +95,7 @@ public class DynamicFactorModel {
         double[] w = new double[nf];
         var.getInnovationsVariance().diagonal().sqrt().copyTo(w, 0);
 
-        VarDescriptor nvar=var.divide(w);
-        DynamicFactorModel nmodel = new DynamicFactorModel(nvar);
+        Builder builder = builder().var(var.divide(w));
 
         // loadings
         for (MeasurementDescriptor desc : measurements) {
@@ -112,9 +108,9 @@ public class DynamicFactorModel {
             MeasurementDescriptor ndesc = desc.toBuilder()
                     .coefficient(DoubleSeq.of(coefficient))
                     .build();
-            nmodel.measurements.add(ndesc);
+            builder.measurement(ndesc);
         }
-        return nmodel;
+        return builder.build();
     }
 
     /**
@@ -136,12 +132,11 @@ public class DynamicFactorModel {
 
         FastMatrix L = V.deepClone();
         SymmetricMatrix.lcholesky(L);
-        
+
         // transform the var
         // f(t) = A f(t-1) + u(t)
         //L^-1*f(t) = L^-1*A*L*L^-1* f(t-1) + e(t)
         // C=L^-1*A*L <-> LC=AL
-
         VarDescriptor.Coefficients C = VarDescriptor.Coefficients.of(var);
         for (int i = 1; i <= nl; ++i) {
             FastMatrix A = C.A(i);
@@ -150,13 +145,10 @@ public class DynamicFactorModel {
             // LC = (AL)
             LowerTriangularMatrix.solveLX(L, A);
         }
-        
-        VarDescriptor nvar = new VarDescriptor(C.all());
-       
-        DynamicFactorModel nmodel=new DynamicFactorModel(nvar);
-        
-        // L contains the Cholesky factor
 
+         Builder builder = builder().var(new VarDescriptor(C.all(), var.getInitialization()));
+
+        // L contains the Cholesky factor
         // transform the loadings
         // y = C*f + e <-> y = (C*L)*L^-1*f+e
         // B = C*L
@@ -181,16 +173,16 @@ public class DynamicFactorModel {
                 }
             }
             MeasurementDescriptor ndesc = desc.toBuilder().coefficient(DoubleSeq.of(c)).build();
-            nmodel.measurements.add(ndesc);
+            builder.measurement(ndesc);
         }
-        return nmodel;
+        return builder.build();
     }
 
-     public int getNfactors() {
+    public int getNfactors() {
         return var.getNfactors();
     }
-    
-    public int getNlags(){
+
+    public int getNlags() {
         return var.getNlags();
     }
 
@@ -201,38 +193,31 @@ public class DynamicFactorModel {
     public List<MeasurementDescriptor> getMeasurements() {
         return Collections.unmodifiableList(measurements);
     }
-    
+
     /**
-     * @return Minimum number of lags computed for the ssf representation.
-     * A better implementation should use different numbers of lags for the different loadings
+     * @return Minimum number of lags computed for the ssf representation. A
+     * better implementation should use different numbers of lags for the
+     * different loadings
      */
-    public int minSsfLags(){
-        int n=var.getNlags();
-        for (MeasurementDescriptor desc : measurements){
+    public int minSsfLags() {
+        int n = var.getNlags();
+        for (MeasurementDescriptor desc : measurements) {
             int l = desc.getType().getLength();
-            if (n<l)
-                n=l;
+            if (n < l) {
+                n = l;
+            }
         }
         return n;
     }
 
     /**
      *
-     * @param initialization
      * @param nlags
      * @return
      */
-    public IMultivariateSsf ssfRepresentation(ISsfInitialization.Type initialization, int nlags) {
-        nlags=Math.max(nlags, minSsfLags());
-        switch (initialization) {
-            case Unconditional -> {
-                return SsfDfm.unconditionalSsf(var, measurements.toArray(MeasurementDescriptor[]::new), nlags);
-            }
-            case Zero -> {
-                return SsfDfm.zeroSsf(var, measurements.toArray(MeasurementDescriptor[]::new), nlags);
-            }
-        }
-        return null;
+    public IMultivariateSsf ssfRepresentation(int nlags) {
+        nlags = Math.max(nlags, minSsfLags());
+        return SsfDfm.of(this, nlags);
     }
 
     /**

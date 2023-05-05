@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
  */
 public class DfmEMTest {
 
-    static DynamicFactorModel dmodel;
+    static DynamicFactorModel dmodel, dmodel_u;
 
     static final int N = 500;
     static final boolean stressTest = false;
@@ -101,7 +101,7 @@ public class DfmEMTest {
             DataBlock prow = Q.row(i);
             prow.copy(trow);
         }
-        VarDescriptor var = new VarDescriptor(C, Q);
+        VarDescriptor var = new VarDescriptor(C, Q, ISsfInitialization.Type.Zero);
 
         // measurement equation
         int nv = 0;
@@ -143,6 +143,7 @@ public class DfmEMTest {
             }
         }
         dmodel = new DynamicFactorModel(var, mdescs);
+        dmodel_u=new DynamicFactorModel(var.withInitialization(ISsfInitialization.Type.Unconditional), mdescs);
     }
 
     private static IDfmMeasurement measurement(int i) {
@@ -174,7 +175,6 @@ public class DfmEMTest {
     public void testEm() {
         long t0=System.currentTimeMillis();
         DfmEM em = DfmEM.builder()
-                .ssfInitialization(ISsfInitialization.Type.Zero)
                 .maxIter(100)
                 .build();
         DynamicFactorModel model0 = em.initialize(dmodel, dfmdata);

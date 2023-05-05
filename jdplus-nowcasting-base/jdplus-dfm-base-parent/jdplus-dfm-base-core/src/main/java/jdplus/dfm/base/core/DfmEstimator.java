@@ -54,7 +54,6 @@ public class DfmEstimator implements IDfmEstimator {
         private boolean mixed = true, independentVarShocks = true;
         private double eps = 1e-9;
         private TsDomain edomain = null;
-        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
         
         public Builder maxIterations(int maxiter) {
             this.maxIter = maxiter;
@@ -106,11 +105,6 @@ public class DfmEstimator implements IDfmEstimator {
             return this;
         }
         
-        public Builder ssfInitialization(ISsfInitialization.Type initialization) {
-            this.initialization = initialization;
-            return this;
-        }
-        
         public DfmEstimator build() {
             return new DfmEstimator(this);
         }
@@ -138,7 +132,6 @@ public class DfmEstimator implements IDfmEstimator {
                 .maxBlockIterations(spec.isEstimationByBlock() ? DEF_MAXBLOCKITERATIONS : 0)
                 .independentVarShocks(spec.isIndependentShocks())
                 .precision(spec.getPrecision())
-                .ssfInitialization(type)
                 .build();
     }
     
@@ -148,7 +141,6 @@ public class DfmEstimator implements IDfmEstimator {
     private final boolean independentVarShocks;
     private final double eps;
     private final FunctionMinimizer.Builder minimizer;
-    private final ISsfInitialization.Type initialization;
     private final TsDomain edomain;
     
     private boolean converged;
@@ -167,7 +159,6 @@ public class DfmEstimator implements IDfmEstimator {
         this.mixed = builder.mixed;
         this.minimizer = builder.minimizer;
         this.edomain = builder.edomain;
-        this.initialization = builder.initialization;
         this.eps = builder.eps;
     }
     
@@ -182,7 +173,6 @@ public class DfmEstimator implements IDfmEstimator {
                 .independentVarShocks(independentVarShocks)
                 .mixed(mixed)
                 .minimizer(minimizer)
-                .ssfInitialization(initialization)
                 .precision(eps);
         
     }
@@ -233,7 +223,6 @@ public class DfmEstimator implements IDfmEstimator {
                         .parallelProcessing(true)
                         .symmetricNumericalDerivatives(false)
                         .log(log)
-                        .initialization(initialization)
                         .build();
                 DfmFunctionPoint curpt = fn.evaluate(smapping.map(model));
 //                System.out.println(curpt.getLikelihood().logLikelihood());
@@ -256,7 +245,6 @@ public class DfmEstimator implements IDfmEstimator {
                             .parallelProcessing(true)
                             .symmetricNumericalDerivatives(false)
                             .log(log)
-                            .initialization(initialization)
                             .build();
 
 //                    setMessage(VSTEP);
@@ -272,7 +260,6 @@ public class DfmEstimator implements IDfmEstimator {
                         double ll0 = pt.getLikelihood().logLikelihood();
                         DfmEM em = DfmEM.builder()
                                 .maxIter(maxIntermediateIter)
-                                .ssfInitialization(initialization)
                                 .fixedVar(emUpLeft <= 0)
                                 .build();
                         model = em.initialize(model, input);
@@ -286,7 +273,6 @@ public class DfmEstimator implements IDfmEstimator {
                                 .parallelProcessing(true)
                                 .symmetricNumericalDerivatives(false)
                                 .log(log)
-                                .initialization(initialization)
                                 .build();
 //                        setMessage(MSTEP);
                         fnmin.minimize(fn.evaluate(mapping.map(model)));
@@ -302,7 +288,6 @@ public class DfmEstimator implements IDfmEstimator {
                             .parallelProcessing(true)
                             .symmetricNumericalDerivatives(false)
                             .log(log)
-                            .initialization(initialization)
                             .build();
 //                    setMessage(ALL);
                     converged = fnmin.minimize(fn.evaluate(mapping.map(model)));
@@ -314,7 +299,7 @@ public class DfmEstimator implements IDfmEstimator {
                     model = normalize(model);
                     boolean stop = likelihood != null && Math.abs(likelihood.logLikelihood() - pt.getLikelihood().logLikelihood()) < eps;
                     likelihood = pt.getLikelihood();
-                    if (biter++ >= maxIter || stop) {
+                    if (biter++ >= maxBlockIterations || stop) {
                         break;
                     }
                 }
@@ -324,7 +309,6 @@ public class DfmEstimator implements IDfmEstimator {
                 fn = DfmFunction.builder(data, mapping)
                         .parallelProcessing(true)
                         .symmetricNumericalDerivatives(false)
-                        .initialization(initialization)
                         .log(log)
                         .build();
                 fnmin = minimizer

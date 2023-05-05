@@ -59,7 +59,7 @@ public class DfmFunctionPoint implements
         this.fn = fn;
         this.p = p;
         current = fn.getMapping().map(p);
-        currentSsf = current.ssfRepresentation(fn.getInitialization(), 0);
+        currentSsf = current.ssfRepresentation(0);
         Likelihood l=null;
         try {
             MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();

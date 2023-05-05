@@ -19,6 +19,7 @@ package jdplus.dfm.base.core.var;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
+import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
@@ -26,6 +27,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * @author Jean Palate
  */
+@lombok.Value
 public class VarDescriptor {
 
     public static final double AR_DEF = .6;
@@ -36,14 +38,25 @@ public class VarDescriptor {
      * c(i,0)f0(t-1)+...+c(i,n)fn(t-1)+... +
      * c(i,(n+1)*(k-1))f0(t-k)...+c(i,(n+1)*(k-1)+n)fn(t-k)+...
      */
-    private final Matrix coefficients;
+    @lombok.NonNull
+    @lombok.With
+    private Matrix coefficients;
     /**
      * Covariance matrix of the innovations
      */
+    @lombok.NonNull
+    @lombok.With
     private final Matrix innovationsVariance;
 
-    public VarDescriptor(@NonNull Matrix coefficients, @NonNull Matrix innovationsVariance) {
+    /**
+     *
+     */
+    @lombok.NonNull
+    @lombok.With
+    private ISsfInitialization.Type initialization;
 
+    public VarDescriptor(@NonNull Matrix coefficients, @NonNull Matrix innovationsVariance, ISsfInitialization.Type initialization) {
+        this.initialization = initialization;
         if (coefficients.getRowsCount() != innovationsVariance.getRowsCount()
                 || !innovationsVariance.isSquare()
                 || coefficients.getColumnsCount() % innovationsVariance.getRowsCount() != 0) {
@@ -54,7 +67,8 @@ public class VarDescriptor {
         this.innovationsVariance = innovationsVariance;
     }
 
-    public VarDescriptor(@NonNull Matrix coefficients) {
+    public VarDescriptor(@NonNull Matrix coefficients, ISsfInitialization.Type initialization) {
+        this.initialization = initialization;
         this.coefficients = coefficients;
         this.innovationsVariance = defaultInnovationsVariance(coefficients.getRowsCount());
     }
@@ -77,14 +91,6 @@ public class VarDescriptor {
         return coefficients.getRowsCount();
     }
 
-    public Matrix getInnovationsVariance() {
-        return innovationsVariance;
-    }
-
-    public Matrix getCoefficients() {
-        return coefficients;
-    }
-
     public static FastMatrix defaultInnovationsVariance(int nfactors) {
         return FastMatrix.identity(nfactors);
     }
@@ -94,17 +100,16 @@ public class VarDescriptor {
         c.diagonal().set(AR_DEF);
         return c;
     }
-    
-    public static VarDescriptor defaultVar(int nfactors, int nlags) {
-        return new VarDescriptor(defaultCoefficients(nfactors, nlags));
+
+    public static VarDescriptor defaultVar(int nfactors, int nlags, ISsfInitialization.Type initialization) {
+        return new VarDescriptor(defaultCoefficients(nfactors, nlags), initialization);
     }
-    
 
     public VarDescriptor withDefault() {
 
         FastMatrix V = defaultInnovationsVariance(getNfactors());
         FastMatrix C = defaultCoefficients(getNfactors(), getNlags());
-        return new VarDescriptor(V, C);
+        return new VarDescriptor(V, C, this.initialization);
     }
 
     /**
@@ -119,7 +124,7 @@ public class VarDescriptor {
         }
         FastMatrix var = FastMatrix.of(innovationsVariance);
         var.mul(c);
-        return new VarDescriptor(coefficients, var);
+        return new VarDescriptor(coefficients, var, initialization);
     }
 
     /**
@@ -148,7 +153,7 @@ public class VarDescriptor {
             }
         }
         SymmetricMatrix.fromLower(V);
-        return new VarDescriptor(C, V);
+        return new VarDescriptor(C, V, initialization);
     }
 
     public VarDescriptor divide(double[] w) {

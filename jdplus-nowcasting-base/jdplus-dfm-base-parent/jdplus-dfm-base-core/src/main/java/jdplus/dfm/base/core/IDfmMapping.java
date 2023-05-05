@@ -30,14 +30,14 @@ import jdplus.toolkit.base.core.math.functions.ParamValidation;
  */
 public interface IDfmMapping extends IParametricMapping<DynamicFactorModel> {
 
-    static final double EPS = 1e-6;
+    static final double EPS = 1e-8;
 
     DoubleSeq map(DynamicFactorModel m);
     
     @Override
     default double epsilon(DoubleSeq inparams, int idx) {
         double x = inparams.get(idx);
-        return -x*EPS;
+        return Math.abs(x)< 1 ? (x>0 ? -EPS : EPS) : EPS*x;
     }
 
     @Override
