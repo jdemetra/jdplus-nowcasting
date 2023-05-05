@@ -17,7 +17,10 @@
 package jdplus.dfm.base.core;
 
 import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.core.data.DataBlock;
+import static jdplus.toolkit.base.core.math.functions.IParametersDomain.PARAM;
 import jdplus.toolkit.base.core.math.functions.IParametricMapping;
+import jdplus.toolkit.base.core.math.functions.ParamValidation;
 
 
 
@@ -27,8 +30,33 @@ import jdplus.toolkit.base.core.math.functions.IParametricMapping;
  */
 public interface IDfmMapping extends IParametricMapping<DynamicFactorModel> {
 
-    static final double EPS = 1e-8;
+    static final double EPS = 1e-6;
 
     DoubleSeq map(DynamicFactorModel m);
     
+    @Override
+    default double epsilon(DoubleSeq inparams, int idx) {
+        double x = inparams.get(idx);
+        return -x*EPS;
+    }
+
+    @Override
+    default double lbound(int idx) {
+        return -Double.MAX_VALUE;
+    }
+
+    @Override
+    default double ubound(int idx) {
+        return Double.MAX_VALUE;
+    }
+
+    @Override
+    default ParamValidation validate(DataBlock ioparams) {
+        return checkBoundaries(ioparams) ? ParamValidation.Valid : ParamValidation.Invalid;
+    }
+
+    @Override
+    default String getDescription(int idx) {
+        return PARAM + idx;
+    }
 }

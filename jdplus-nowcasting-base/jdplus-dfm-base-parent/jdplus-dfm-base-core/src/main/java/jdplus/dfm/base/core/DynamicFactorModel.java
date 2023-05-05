@@ -94,7 +94,7 @@ public class DynamicFactorModel {
      */
     public DynamicFactorModel normalize() {
         // scaling factors
-        int nl = var.getNlags(), nf = var.getNfactors();
+        int nf = var.getNfactors();
         double[] w = new double[nf];
         var.getInnovationsVariance().diagonal().sqrt().copyTo(w, 0);
 

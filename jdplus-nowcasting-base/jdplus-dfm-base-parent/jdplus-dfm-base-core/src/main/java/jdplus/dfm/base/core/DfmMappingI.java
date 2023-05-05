@@ -243,32 +243,8 @@ public class DfmMappingI implements IDfmMapping {
     }
 
     @Override
-    public double epsilon(DoubleSeq inparams, int idx) {
-        return inparams.get(idx) > 0 ? -EPS : EPS;
-    }
-
-    @Override
     public int getDim() {
         return np;
     }
 
-    @Override
-    public double lbound(int idx) {
-        return -Double.MAX_VALUE;
-    }
-
-    @Override
-    public double ubound(int idx) {
-        return Double.MAX_VALUE;
-    }
-
-    @Override
-    public ParamValidation validate(DataBlock ioparams) {
-        return checkBoundaries(ioparams) ? ParamValidation.Valid : ParamValidation.Invalid;
-    }
-
-    @Override
-    public String getDescription(int idx) {
-        return PARAM + idx;
-    }
 }

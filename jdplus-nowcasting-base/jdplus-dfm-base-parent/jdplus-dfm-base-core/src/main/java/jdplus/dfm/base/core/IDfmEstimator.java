@@ -19,6 +19,7 @@ package jdplus.dfm.base.core;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
 
 
 
@@ -33,4 +34,5 @@ public interface IDfmEstimator {
     DoubleSeq getGradient();
     
     DynamicFactorModel getEstimatedModel();
+    Likelihood getLikelihood();
 }

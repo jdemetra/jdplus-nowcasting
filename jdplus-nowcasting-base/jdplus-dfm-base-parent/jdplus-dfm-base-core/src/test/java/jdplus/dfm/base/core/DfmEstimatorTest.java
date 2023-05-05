@@ -51,17 +51,30 @@ public class DfmEstimatorTest {
                 //                .maxIntermediateIter(5)
                 .build();
 
-        DfmEstimator estimator = DfmEstimator.of(nspec, ISsfInitialization.Type.Unconditional);
+        DfmEstimator estimator = DfmEstimator.of(nspec, ISsfInitialization.Type.Unconditional)
+                .toBuilder()
+                .maxBlockIterations(50)
+                .build();
         estimator.estimate(dfm, DfmEMTest.dfmdata);
         DynamicFactorModel m = estimator.getEstimatedModel();
+        System.out.println(estimator.getLikelihood().logLikelihood());
         System.out.println(estimator.getGradient());
-        
+
         System.out.println(m.getVar().getCoefficients());
         System.out.println(m.getVar().getInnovationsVariance());
-        for (MeasurementDescriptor desc : m.getMeasurements()){
+        for (MeasurementDescriptor desc : m.getMeasurements()) {
+            DoubleSeq coefficient = desc.getCoefficient();
+            coefficient.forEach(q -> {
+                if (Double.isNaN(q)) {
+                    System.out.print('\t');
+                } else {
+                    System.out.print(q);
+                    System.out.print('\t');
+                }
+            });
             System.out.println(desc.getVariance());
         }
-            
+
     }
 
 }

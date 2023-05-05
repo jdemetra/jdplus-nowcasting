@@ -204,28 +204,8 @@ public class SimpleDfmMapping implements IDfmMapping {
     }
     
     @Override
-    public double epsilon(DoubleSeq inparams, int idx) {
-        return 1e-6;
-    }
-    
-    @Override
     public int getDim() {
         return np;
-    }
-    
-    @Override
-    public double lbound(int idx) {
-        return -Double.MAX_VALUE;
-    }
-    
-    @Override
-    public double ubound(int idx) {
-        return Double.MAX_VALUE;
-    }
-    
-    @Override
-    public ParamValidation validate(DataBlock ioparams) {
-        return ParamValidation.Valid;
     }
     
     public DynamicFactorModel validate(DynamicFactorModel model) {
@@ -243,9 +223,4 @@ public class SimpleDfmMapping implements IDfmMapping {
         return new DynamicFactorModel(new VarDescriptor(v, model.getVar().getInnovationsVariance()), model.getMeasurements());
     }
 
-    @Override
-    public String getDescription(int idx) {
-        return PARAM + idx;
-    }
-    
 }

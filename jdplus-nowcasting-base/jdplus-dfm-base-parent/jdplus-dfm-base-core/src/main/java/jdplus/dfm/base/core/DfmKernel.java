@@ -46,7 +46,8 @@ public class DfmKernel {
             dfm=estimator.getEstimatedModel();
             builder.dfm(dfm)
                     .hessian(estimator.getHessian())
-                    .gradient(estimator.getGradient());
+                    .gradient(estimator.getGradient())
+                    .likelihood(estimator.getLikelihood());
         }
         if (processor != null) {
             processor.process(dfm, input);
