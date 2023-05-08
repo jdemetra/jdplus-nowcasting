@@ -36,7 +36,6 @@ public class DfmProcessor {
     public static class Builder {
 
         private boolean calcVariance = true;
-        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Unconditional;
         private int nxlags;
 
         public Builder calcVariance(boolean var) {
@@ -49,11 +48,6 @@ public class DfmProcessor {
             return this;
         }
 
-        public Builder initialization(ISsfInitialization.Type initialization) {
-            this.initialization = initialization;
-            return this;
-        }
-        
         public DfmProcessor build(){
             return new DfmProcessor(this);
         }
@@ -65,12 +59,10 @@ public class DfmProcessor {
     }
 
     private final boolean calcVariance;
-    private final ISsfInitialization.Type initialization;
     private final int nxlags;
     
     private DfmProcessor(Builder builder){
         this.calcVariance=builder.calcVariance;
-        this.initialization=builder.initialization;
         this.nxlags=builder.nxlags;
     }
 
@@ -101,7 +93,7 @@ public class DfmProcessor {
         }
         try {
             clear();
-            IMultivariateSsf ssf = model.ssfRepresentation(initialization, nxlags);
+            IMultivariateSsf ssf = model.ssfRepresentation(nxlags);
             MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
                     .calcVariance(calcVariance)
                     .build();

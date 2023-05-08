@@ -21,14 +21,9 @@ import java.util.List;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.data.DoubleSeqCursor;
-import jdplus.toolkit.base.api.math.Complex;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.data.DataBlock;
-import jdplus.toolkit.base.core.math.functions.ParamValidation;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
-import jdplus.toolkit.base.core.math.matrices.MatrixException;
-import jdplus.toolkit.base.core.math.matrices.decomposition.EigenSystem;
-import jdplus.toolkit.base.core.math.matrices.decomposition.IEigenSystem;
 
 /**
  * Mapping defined for a simplified model (Innovation variance = I, nlags = 1)
@@ -80,7 +75,7 @@ public class SimpleDfmMapping implements IDfmMapping {
         for (int c = nb; c < C.getColumnsCount(); ++c) {
             C.column(c).set(0);
         }
-        template = new DynamicFactorModel(new VarDescriptor(C), nmodel.getMeasurements());
+        template = new DynamicFactorModel(new VarDescriptor(C, model.getVar().getInitialization()), nmodel.getMeasurements());
         nm = nmodel.getMeasurementsCount() - 1;
         // measurement: all loadings, all var
         // vparams
@@ -154,7 +149,7 @@ public class SimpleDfmMapping implements IDfmMapping {
         DoubleSeq vc = vcoefficients(p);
         FastMatrix t = FastMatrix.square(nb);
         vc.copyTo(t.getStorage(), 0);
-        return new DynamicFactorModel(new VarDescriptor(t), m);
+        return new DynamicFactorModel(new VarDescriptor(t, template.getVar().getInitialization()), m);
     }
     
     @Override
@@ -220,7 +215,7 @@ public class SimpleDfmMapping implements IDfmMapping {
             }
             vd.set(i, r);
         }
-        return new DynamicFactorModel(new VarDescriptor(v, model.getVar().getInnovationsVariance()), model.getMeasurements());
+        return new DynamicFactorModel(model.getVar().withCoefficients(v), model.getMeasurements());
     }
 
 }

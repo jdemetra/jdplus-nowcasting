@@ -18,12 +18,10 @@ package jdplus.dfm.base.core;
 
 import jdplus.dfm.base.api.NumericalProcessingSpec;
 import static jdplus.dfm.base.core.DfmEMTest.dfmdata;
-import static jdplus.dfm.base.core.DfmEMTest.dmodel;
+import static jdplus.dfm.base.core.DfmEMTest.dmodel_u;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.core.ssf.ISsfInitialization;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  *
@@ -37,13 +35,12 @@ public class DfmEstimatorTest {
     public static void main(String[] args) {
 
         DfmEM em = DfmEM.builder()
-                .ssfInitialization(ISsfInitialization.Type.Unconditional)
                 .maxIter(10)
                 .build();
         PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
         TsDomain domain = dfmdata.getCurrentDomain().drop(120, 12);
         initializer.setEstimationDomain(domain);
-        DynamicFactorModel model0 = initializer.initialize(dmodel, dfmdata);
+       DynamicFactorModel model0 = initializer.initialize(dmodel_u, dfmdata);
 
         DynamicFactorModel dfm = em.initialize(model0, dfmdata);
         NumericalProcessingSpec nspec = NumericalProcessingSpec.DEFAULT_ENABLED.toBuilder()
@@ -53,7 +50,7 @@ public class DfmEstimatorTest {
 
         DfmEstimator estimator = DfmEstimator.of(nspec, ISsfInitialization.Type.Unconditional)
                 .toBuilder()
-                .maxBlockIterations(50)
+                .maxBlockIterations(30)
                 .build();
         estimator.estimate(dfm, DfmEMTest.dfmdata);
         DynamicFactorModel m = estimator.getEstimatedModel();

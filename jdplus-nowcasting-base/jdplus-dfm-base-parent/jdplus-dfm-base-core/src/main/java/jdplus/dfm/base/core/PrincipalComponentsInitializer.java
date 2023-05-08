@@ -243,7 +243,7 @@ public class PrincipalComponentsInitializer implements IDfmInitializer {
             }
         }
         SymmetricMatrix.fromLower(V);
-        return new VarDescriptor(C, V);
+        return new VarDescriptor(C, V, var.getInitialization());
     }
 
     private List<MeasurementDescriptor> computeLoadings(DynamicFactorModel model) {

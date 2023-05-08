@@ -55,7 +55,6 @@ public class DfmEM implements IDfmInitializer {
 //        private int maxNumericalIter = MAXNUMITER;
         private double eps = DEF_EPS;
 //        private boolean fixedInitialConditions = true
-        private ISsfInitialization.Type initialization = ISsfInitialization.Type.Zero;
 //        private boolean computeAll = true;
         private boolean fixedVar = false;
 
@@ -93,11 +92,6 @@ public class DfmEM implements IDfmInitializer {
 //            this.computeAll = all;
 //            return this;
 //        }
-        public Builder ssfInitialization(ISsfInitialization.Type type) {
-            this.initialization = type;
-            return this;
-        }
-
         public DfmEM build() {
             return new DfmEM(this);
         }
@@ -121,7 +115,6 @@ public class DfmEM implements IDfmInitializer {
 //    private final boolean fixedInitialConditions;
 //    private final boolean computeAll;
     private final boolean fixedVar;
-    private final ISsfInitialization.Type initialization;
 
     private DynamicFactorModel dfm;
     private int nxlags;
@@ -144,7 +137,6 @@ public class DfmEM implements IDfmInitializer {
         this.eps = builder.eps;
 //        this.fixedInitialConditions = builder.fixedInitialConditions;
 //        this.computeAll = builder.computeAll;
-        this.initialization = builder.initialization;
         this.fixedVar = builder.fixedVar;
     }
 
@@ -263,7 +255,6 @@ public class DfmEM implements IDfmInitializer {
         this.nxlags = rdfm.minSsfLags();
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
-                .initialization(initialization)
                 .build();
         modelSize = nxlags * rdfm.getNfactors();
         dataSize = data.getCurrentDomain().getLength();
@@ -295,7 +286,7 @@ public class DfmEM implements IDfmInitializer {
         try {
             MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
             PredictionErrorsDecomposition results = new PredictionErrorsDecomposition();
-            filter.process(dfm.ssfRepresentation(initialization, nxlags), new SsfMatrix(FastMatrix.of(data.generateMatrix(null))), results);
+            filter.process(dfm.ssfRepresentation(nxlags), new SsfMatrix(FastMatrix.of(data.generateMatrix(null))), results);
             Likelihood ll = results.likelihood(true);
             logLikelihood = ll.logLikelihood();
             if (adjust) {
@@ -309,7 +300,6 @@ public class DfmEM implements IDfmInitializer {
     private boolean EStep() {
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
-                .initialization(initialization)
                 .extendedLags(nxlags)
                 .build();
         if (!processor.process(dfm, data)) {
@@ -456,8 +446,10 @@ public class DfmEM implements IDfmInitializer {
     }
 
     private VarDescriptor mvar() {
-        if (fixedVar)
-            return dfm.getVar();
+        VarDescriptor var = dfm.getVar();
+        if (fixedVar) {
+            return var;
+        }
         // analytical optimization
         int nl = dfm.getNlags();
         int nf = dfm.getNfactors();
@@ -490,7 +482,8 @@ public class DfmEM implements IDfmInitializer {
         SymmetricMatrix.solveXS(f2, A, false);
 
         // Q = 1/T * (E(f0,f0) - A * f')
-        FastMatrix Q = FastMatrix.of(dfm.getVar().getInnovationsVariance());
+        FastMatrix Q = FastMatrix.of(var.getInnovationsVariance()
+        );
         for (int i = 0; i < nf; ++i) {
             for (int j = 0; j <= i; ++j) {
                 Q.set(i, j, efifj(ss, i * nxlags, j * nxlags).sum());
@@ -502,7 +495,7 @@ public class DfmEM implements IDfmInitializer {
         Q.sub(Y);
         Q.mul(1.0 / dataSize);
 
-        return new VarDescriptor(A, Q);
+        return new VarDescriptor(A, Q, var.getInitialization());
     }
 
 }

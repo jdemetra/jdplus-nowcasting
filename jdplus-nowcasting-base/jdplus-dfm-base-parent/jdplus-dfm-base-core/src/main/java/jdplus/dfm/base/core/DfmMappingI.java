@@ -140,7 +140,7 @@ public class DfmMappingI implements IDfmMapping {
         if (vp != null) {
             FastMatrix t = FastMatrix.of(var.getCoefficients());
             vp.copyTo(t.getStorage(), 0);
-            var = new VarDescriptor(t);
+            var = var.withCoefficients(t);
         }
         List<MeasurementDescriptor> m;
         DoubleSeq l = loadings(p);

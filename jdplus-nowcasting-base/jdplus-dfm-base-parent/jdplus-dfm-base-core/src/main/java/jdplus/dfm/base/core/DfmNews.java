@@ -16,21 +16,29 @@
  */
 package jdplus.dfm.base.core;
 
-//import java.util.List;
-//
-///**
-// * Computation of the news (See Banbura an Modagno, appendix D of the reference
-// * paper for further details)
-// *
-// * @author Jean Palate
-// */
-//public class DfmNews {
-//
-//    private MSmoothingResults srslts0_, srslts1_, srslts01_;
+import java.util.List;
+import jdplus.dfm.base.api.timeseries.TsInformationSet;
+import jdplus.dfm.base.api.timeseries.TsInformationUpdates;
+import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.toolkit.base.api.timeseries.TsDomain;
+import jdplus.toolkit.base.api.timeseries.TsPeriod;
+import jdplus.toolkit.base.core.ssf.ISsfInitialization;
+import jdplus.toolkit.base.core.ssf.StateStorage;
+import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
+
+/**
+ * Computation of the news (See Banbura an Modagno, appendix D of the reference
+ * paper for further details)
+ *
+ * @author Jean Palate
+ */
+public class DfmNews {
+
 //    private final DynamicFactorModel model_;
+//    private StateStorage srslts0_, srslts1_, srslts01_;
 //    private DynamicFactorModel modelex_;
 //    private DynamicFactorModel modelexRev_;
-//    private final IMSsf ssf_;
+//    private final IMultivariateSsf ssf_;
 //    private TsInformationSet oldset_, newset_, revisedset_;
 //    private TsInformationUpdates updates_;
 //    private Matrix mcov_, lcov_;
@@ -583,4 +591,4 @@ package jdplus.dfm.base.core;
 //        LowerTriangularMatrix.lsolve(lcovRev_, a, MFilter.Zero);
 //        return a;
 //    }
-//}
+}
