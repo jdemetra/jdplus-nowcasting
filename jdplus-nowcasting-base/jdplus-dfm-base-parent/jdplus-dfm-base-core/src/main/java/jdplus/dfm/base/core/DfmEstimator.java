@@ -204,7 +204,6 @@ public class DfmEstimator implements IDfmEstimator {
         SsfMatrix data = new SsfMatrix(FastMatrix.of(input.generateMatrix(edomain)));
         DfmFunction fn;
         DfmFunctionPoint pt;
-        int niter = 0;
         model = model.normalize();
         FunctionMinimizer fnmin = null;
         boolean log = false;

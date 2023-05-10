@@ -195,11 +195,9 @@ public class DynamicFactorModel {
     }
 
     /**
-     * @return Minimum number of lags computed for the ssf representation. A
-     * better implementation should use different numbers of lags for the
-     * different loadings
+     * @return Minimum number of factor items for the ssf representation.
      */
-    public int minSsfLags() {
+    public int minSsfBlockLength() {
         int n = var.getNlags();
         for (MeasurementDescriptor desc : measurements) {
             int l = desc.getType().getLength();
@@ -211,15 +209,35 @@ public class DynamicFactorModel {
     }
 
     /**
+     * Number of lags needed to apply the different measurement.
+     * 
+     * @return 
+     */
+    public int measurementsLags() {
+        int n = 0;
+        for (MeasurementDescriptor desc : measurements) {
+            int l = desc.getType().getLength();
+            if (n < l) {
+                n = l;
+            }
+        }
+        return n-1;
+    }
+    
+    /**
      *
      * @param nlags
      * @return
      */
     public IMultivariateSsf ssfRepresentation(int nlags) {
-        nlags = Math.max(nlags, minSsfLags());
         return SsfDfm.of(this, nlags);
     }
 
+    public IMultivariateSsf ssfRepresentationWithBlockLength(int blockLength) {
+        if (blockLength<minSsfBlockLength())
+            throw new DfmException();
+        return SsfDfm.withBlockLength(this, blockLength);
+    }
     /**
      *
      * @return
