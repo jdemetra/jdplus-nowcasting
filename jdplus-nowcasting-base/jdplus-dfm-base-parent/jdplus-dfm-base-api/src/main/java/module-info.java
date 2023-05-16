@@ -26,5 +26,4 @@ module jdplus.dfm.base.api {
 
     exports jdplus.dfm.base.api;
     exports jdplus.dfm.base.api.timeseries;
-    exports jdplus.dfm.base.api.var;
 }

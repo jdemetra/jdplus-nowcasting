@@ -23,6 +23,7 @@
             <artifactId>jdplus-toolkit-base-api</artifactId>
             <version>${jdplus-main.version}</version>
         </dependency>
+
         <!-- test only -->
         <dependency>
             <groupId>eu.europa.ec.joinup.sat</groupId>

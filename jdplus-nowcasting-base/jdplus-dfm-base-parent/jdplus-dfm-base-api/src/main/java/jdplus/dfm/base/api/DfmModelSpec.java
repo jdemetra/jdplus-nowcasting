@@ -16,7 +16,6 @@
  */
 package jdplus.dfm.base.api;
 
-import jdplus.dfm.base.api.var.VarSpecification;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
