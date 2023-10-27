@@ -273,6 +273,7 @@ public class DfmEM implements IDfmInitializer {
             if (!MStep()) {
                 break;
             }
+            System.out.println(logLikelihood);
         }
 
         // finishing
@@ -300,7 +301,7 @@ public class DfmEM implements IDfmInitializer {
     private boolean EStep() {
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
-                .extendedLags(1)
+                .extendedLags(0)
                 .build();
         if (!processor.process(dfm, data)) {
             return false;

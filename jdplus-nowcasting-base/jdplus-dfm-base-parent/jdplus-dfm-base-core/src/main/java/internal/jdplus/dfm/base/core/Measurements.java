@@ -23,7 +23,6 @@ import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.QuadraticForm;
 import jdplus.toolkit.base.core.ssf.ISsfLoading;
-import jdplus.toolkit.base.core.ssf.basic.MeasurementsError;
 import jdplus.toolkit.base.core.ssf.multivariate.ISsfErrors;
 import jdplus.toolkit.base.core.ssf.multivariate.ISsfMeasurements;
 
@@ -111,7 +110,7 @@ public class Measurements implements ISsfMeasurements {
 
     @Override
     public ISsfErrors errors() {
-        return MeasurementsError.of(DoubleSeq.onMapping(mdesc.length, i -> mdesc[i].getVariance()));
+        return MeasurementsErrorC.of(DoubleSeq.onMapping(mdesc.length, i -> mdesc[i].getVariance()));
     }
 
     class Loading implements ISsfLoading {

@@ -14,25 +14,19 @@
  * See the Licence for the specific language governing permissions and 
  * limitations under the Licence.
  */
-package jdplus.dfm.base.core;
 
-import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.api.information.GenericExplorable;
-import jdplus.toolkit.base.api.math.matrices.Matrix;
-import jdplus.toolkit.base.core.ssf.StateStorage;
-import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
+module jdplus.sts.base.r {
 
-/**
- *
- * @author palatej
- */
-@lombok.Value
-@lombok.Builder(builderClassName="builder")
-public class DfmResults implements GenericExplorable {
+    requires static lombok;
+    requires static nbbrd.design;
+    requires static nbbrd.service;
+    requires static org.checkerframework.checker.qual;
+
+    requires jdplus.toolkit.base.api;
+    requires jdplus.toolkit.base.core;
+    requires jdplus.toolkit.base.r;
+    requires jdplus.dfm.base.api;
+    requires jdplus.dfm.base.core;
     
-    DynamicFactorModel dfm;
-    Likelihood likelihood;
-    DoubleSeq gradient;
-    Matrix hessian;
-    StateStorage smoothedStates;
+    exports jdplus.dfm.base.r;
 }

@@ -19,5 +19,6 @@
     <modules>
         <module>jdplus-dfm-base-api</module>
         <module>jdplus-dfm-base-core</module>
+        <module>jdplus-dfm-base-r</module>
     </modules>
 </project>

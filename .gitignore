@@ -1,5 +1,3 @@
 **/nbproject/
 **/nb-configuration.xml
 **/target/
-!/jdplus-nowcasting-base/jdplus-dfm-base-parent/jdplus-dfm-base-api/src/main/java/jdplus/dfm/base/api/var/
-!/jdplus-nowcasting-base/jdplus-dfm-base-parent/jdplus-dfm-base-core/src/main/java/jdplus/dfm/base/core/var/
