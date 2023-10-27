@@ -20,7 +20,6 @@ import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
-import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.ssf.StateStorage;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateFilteringInformation;

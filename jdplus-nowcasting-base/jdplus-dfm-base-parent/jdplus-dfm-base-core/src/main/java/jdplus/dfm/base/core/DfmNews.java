@@ -19,576 +19,513 @@ package jdplus.dfm.base.core;
 import java.util.List;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.api.timeseries.TsInformationUpdates;
-import jdplus.toolkit.base.api.math.matrices.Matrix;
+import jdplus.dfm.base.api.timeseries.TsInformationUpdates.Update;
+import jdplus.dfm.base.api.timeseries.TsUtility;
 import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
-import jdplus.toolkit.base.core.ssf.ISsfInitialization;
+import jdplus.toolkit.base.core.data.DataBlock;
+import jdplus.toolkit.base.core.data.DataBlockIterator;
+import jdplus.toolkit.base.core.math.matrices.FastMatrix;
+import jdplus.toolkit.base.core.math.matrices.LowerTriangularMatrix;
+import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
+import jdplus.toolkit.base.core.ssf.State;
+import jdplus.toolkit.base.core.ssf.StateInfo;
 import jdplus.toolkit.base.core.ssf.StateStorage;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
+import jdplus.toolkit.base.core.ssf.multivariate.MultivariateFilteringInformation;
+import jdplus.toolkit.base.core.ssf.multivariate.MultivariateOrdinaryFilter;
+import jdplus.toolkit.base.core.ssf.multivariate.MultivariateOrdinarySmoother;
+import jdplus.toolkit.base.core.ssf.multivariate.SsfMatrix;
 
 /**
  * Computation of the news (See Banbura an Modagno, appendix D of the reference
- * paper for further details)
+ * paper for further details) This implementation considers separately new
+ * figures and revised figures, to get "manageable" state space models
  *
  * @author Jean Palate
  */
 public class DfmNews {
 
-//    private final DynamicFactorModel model_;
-//    private StateStorage srslts0_, srslts1_, srslts01_;
-//    private DynamicFactorModel modelex_;
-//    private DynamicFactorModel modelexRev_;
-//    private final IMultivariateSsf ssf_;
-//    private TsInformationSet oldset_, newset_, revisedset_;
-//    private TsInformationUpdates updates_;
-//    private Matrix mcov_, lcov_;
-//    private Matrix mcovRev_, lcovRev_;
-//    private TsPeriod first_, last_;
-//
-//    private int ext_ = 2;
-//    /**
-//     * "Complete" domain, which is the union of the domains of the old
-//     * information set and of the new information set
-//     */
-//    private TsDomain fullDomain_;
-//    /**
-//     * domain containing all the news
-//     */
-//    private TsDomain nDomain_;
-//    private TsDomain rDomain_;
-//
-//    private TsDomain iDomain0_, iDomain1_;
-//
-//    /**
-//     *
-//     * @param model
-//     */
-//    public DfmNews(DynamicFactorModel model) {
-//        model_ = model;
-//        ssf_ = model_.ssfRepresentation();
-//    }
-//
-//    public TsInformationSet getOldInformationSet() {
-//        return this.oldset_;
-//    }
-//
-//    public TsInformationSet getNewInformationSet() {
-//        return this.newset_;
-//    }
-//
-//    /**
-//     * Returns the old data set with revisions from the new data set. The news
-//     * are not present.
-//     *
-//     * @return Old data + revisions
-//     */
-//    public TsInformationSet getRevisedInformationSet() {
-//        return this.revisedset_;
-//    }
-//
-//    public DynamicFactorModel getModel() {
-//        return model_;
-//    }
-//
-//    public TsDomain getNewsDomain() {
-//        return nDomain_;
-//    }
-//
-//    public TsDomain getRevisionsDomain() {
-//        return rDomain_;
-//    }
-//
-//    /**
-//     * Computes the news between two consecutive information set
-//     *
-//     * @param oldSet The old information set
-//     * @param newSet The new information set
-//     * @return True if the news have been successfully computed
-//     */
-//    public boolean process(TsInformationSet oldSet, TsInformationSet newSet) {
-//        oldset_ = oldSet;
-//        newset_ = newSet;
-//        revisedset_ = oldset_.revisedData(newset_);
-//        updates_ = oldset_.updates(newset_);    // Calculates news and revisions
-//        if (updates_.news().isEmpty()) {
-//            return false;
-//        }
-//
-//        // 5 lines are useless (same methods in computeDomains())
-//        TsDomain d0 = revisedset_.getCurrentDomain();
-//        TsDomain d1 = newset_.getCurrentDomain();
-//        fullDomain_ = d0.union(d1);
-//        last_ = fullDomain_.getLast();
-//        first_ = fullDomain_.getStart();
-//
-//        computeDomains();
-//        return calcNews();
-//    }
-//
-//    private boolean calcNews() {
-//        // Calculates News
-//        computeNewsDomain();
-//
-//        Matrix M = revisedset_.generateMatrix(fullDomain_);
-//        Matrix M_old = oldset_.generateMatrix(fullDomain_);
-//
-//        if (!smoothOldData(M_old)) {
-//            return false;
-//        }
-//        
-//        if(!smoothRevData(M)) {
-//            return false;
-//        }
-//        
-//        updateNews();
-//
-//        if (!smoothNewDataEx(M)) {
-//            return false;
-//        }
-//        computeNewsCovariance();
-//
-//        // Calculates Revisions
-//        if (!updates_.revisions().isEmpty()) {
-//            computeRevisionsDomain();
-//            updateRevisions();
-//
-//            if (!smoothRevisionDataEx(M_old)) {
-//                return false;
-//            }
-//            computeRevisionsCovariance();
-//        }
-//
-//        return true;
-//    }
-//
-//    public double getOldForecast(int series, TsPeriod p) {
-//        int pos = p.lastPeriod(fullDomain_.getFrequency()).minus(fullDomain_.getStart());
-//        DataBlock A = getOldSmoothingResults().A(pos);
-//        return A != null ? ssf_.ZX(pos, series, A) : Double.NaN;
-//    }
-//
-//    public double getNewForecast(int series, TsPeriod p) {
-//        int pos = p.lastPeriod(fullDomain_.getFrequency()).minus(fullDomain_.getStart());
-//        DataBlock A = getNewSmoothingResults().A(pos);
-//        return A != null ? ssf_.ZX(pos, series, A) : Double.NaN;
-//    }
-//
-//    public int getMaxNewsExtensionPeriod() {
-//        return ext_;
-//    }
-//
-//    public void setMaxNewsExtensionPeriod(int n) {
-//        if (n != ext_) {
-//            ext_ = n;
-//            calcNews();
-//        }
-//    }
-//
-//    private void computeDomains() {
-//        TsDomain d0 = revisedset_.getCurrentDomain();
-//        TsDomain d1 = newset_.getCurrentDomain();
-//        fullDomain_ = d0.union(d1);
-//        last_ = fullDomain_.getLast();
-//        first_ = fullDomain_.getStart();
-//        iDomain0_ = revisedset_.getCommonDomain();
-//        iDomain1_ = newset_.getCommonDomain();
-//    }
-//
-//    /**
-//     * For every series, calculates the domain of the data that has been added
-//     * (from the last news until either the first news or the last available
-//     * data).
-//     */
-//    private void computeNewsDomain() {
-//        nDomain_ = updates_.updatesDomain(fullDomain_.getFrequency(), updates_.news());
-//        for (int i = 0; i < revisedset_.getSeriesCount(); ++i) {
-//            TsData s = revisedset_.series(i);
-//            int j = s.getLength();
-//            while (j > 0 && s.isMissing(j - 1)) {
-//                --j;
-//            }
-//            TsPeriod last = s.getStart().plus(j).lastPeriod(nDomain_.getFrequency());
-//            // n = missing values between the last observation and the first news
-//            int n = nDomain_.getStart().minus(last);
-//            if (n > 0 && ext_ != 0) {
-//                if (ext_ > 0) {
-//                    // returns in the past to the minimum betwen n and 
-//                    // ext_ * frequency value (monthly = 12, quart. = 4)
-//                    n = Math.min(n, ext_ * nDomain_.getFrequency().intValue());
-//                }
-//                nDomain_ = nDomain_.extend(n, 0);
-//            }
-//        }
-//    }
-//
-//    private void computeRevisionsDomain() {
-//        rDomain_ = updates_.updatesDomain(fullDomain_.getFrequency(), updates_.revisions());
-//        for (int i = 0; i < revisedset_.getSeriesCount(); ++i) {
-//            TsData s = revisedset_.series(i);
-//            int j = s.getLength();
-//            while (j > 0 && s.isMissing(j - 1)) {
-//                --j;
-//            }
-//            TsPeriod last = s.getStart().plus(j).lastPeriod(rDomain_.getFrequency());
-//            int n = rDomain_.getStart().minus(last);
-//            if (n > 0 && ext_ != 0) {
-//                if (ext_ > 0) {
-//                    n = Math.min(n, ext_ * rDomain_.getFrequency().intValue());
-//                }
-//                rDomain_ = rDomain_.extend(n, 0);
-//            }
-//        }
-//    }
-//
-//    /**
-//     * Computes the smoothed states corresponding to the old data set. The
-//     * variance of the smoothed states are not computed. The states are saved
-//     * till the period corresponding to the domain of the news.
-//     *
-//     * @param M
-//     */
-//    private boolean smoothOldData(Matrix M) {
-//        MultivariateSsfData ssfData = new MultivariateSsfData(M.subMatrix().transpose(), null);
-//        MSmoother smoother = new MSmoother();
-//        srslts0_ = new MSmoothingResults();
-//        int last = fullDomain_.search(iDomain0_.getStart());
-//        srslts0_.setSavingStart(last);
-//        smoother.setStopPosition(last);
-//        smoother.setCalcVariance(false);
-//        return smoother.process(ssf_, ssfData, srslts0_);
-//    }
-//
-//    private boolean smoothNewData(Matrix M) {
-//        MultivariateSsfData ssfData = new MultivariateSsfData(M.subMatrix().transpose(), null);
-//        MSmoother smoother = new MSmoother();
-//        srslts1_ = new MSmoothingResults();
-//        int last = fullDomain_.search(iDomain1_.getStart());
-//        srslts1_.setSavingStart(last);
-//        smoother.setStopPosition(last);
-//        smoother.setCalcVariance(false);
-//        return smoother.process(ssf_, ssfData, srslts1_);
-//    }
-//    
-//    private boolean smoothRevData(Matrix M) {
-//        MultivariateSsfData ssfData = new MultivariateSsfData(M.subMatrix().transpose(), null);
-//        MSmoother smoother = new MSmoother();
-//        srslts01_ = new MSmoothingResults();
-//        int last = fullDomain_.search(iDomain0_.getStart());
-//        srslts01_.setSavingStart(last);
-//        smoother.setStopPosition(last);
-//        smoother.setCalcVariance(false);
-//        return smoother.process(ssf_, ssfData, srslts01_);
-//    }
-//
-//    /**
-//     * Updates the news with the forecasts computed on the old data
-//     */
-//    private void updateNews() {
-//        TsFrequency freq = first_.getFrequency();
-//        for (Update update : updates_.news()) {
-//            update.y = newset_.series(update.series).get(update.period);
-//            int pos = update.period.lastPeriod(freq).minus(first_);
-//            update.fy = ssf_.ZX(pos, update.series, srslts01_.A(pos));
-//        }
-//    }
-//
-//    private void updateRevisions() {
-//        for (Update update : updates_.revisions()) {
-//            TsFrequency freq = oldset_.series(update.series).getFrequency();
-//            update.y = revisedset_.series(update.series).get(update.period.lastPeriod(freq));
-//            update.fy = oldset_.series(update.series).get(update.period.lastPeriod(freq));
-//        }
-//    }
-//
-//    /**
-//     * Computes the smoothed states of the extended model
-//     *
-//     * @return
-//     */
-//    private boolean smoothNewDataEx(Matrix M) {
-//        // extends the model
-//        modelex_ = model_.clone();
-//        modelex_.setBlockLength(model_.getBlockLength() + last_.minus(nDomain_.getStart()) + 1);
-//        int last = fullDomain_.getLength() - 1;
-//        IMSsf ssf = modelex_.ssfRepresentation();
-//        MFilteringResults frslts = new MFilteringResults();
-//        frslts.saveAll(last);
-//        MFilter filter = new MFilter();
-//        MultivariateSsfData ssfData = new MultivariateSsfData(M.subMatrix().transpose(), null);
-//        filter.process(ssf, ssfData, frslts);
-//        MSmoother smoother = new MSmoother();
-//        smoother.setStopPosition(last);
-//        smoother.setCalcVariance(true);
-//        MSmoothingResults srslts = new MSmoothingResults();
-//        srslts.setSavingStart(last);
-//        smoother.process(ssf, ssfData, frslts, srslts);
-//        mcov_ = new Matrix(srslts.P(last));
-//        return true;
-//    }
-//
-//    private boolean smoothRevisionDataEx(Matrix M) {
-//        // extends the model
-//        modelexRev_ = model_.clone();
-//        modelexRev_.setBlockLength(model_.getBlockLength() + last_.minus(rDomain_.getStart()) + 1);
-//        int last = fullDomain_.getLength() - 1;
-//        IMSsf ssf = modelexRev_.ssfRepresentation();
-//        MFilteringResults frslts = new MFilteringResults();
-//        frslts.saveAll(last);
-//        MFilter filter = new MFilter();
-//        MultivariateSsfData ssfData = new MultivariateSsfData(M.subMatrix().transpose(), null);
-//        filter.process(ssf, ssfData, frslts);
-//        MSmoother smoother = new MSmoother();
-//        smoother.setStopPosition(last);
-//        smoother.setCalcVariance(true);
-//        MSmoothingResults srslts = new MSmoothingResults();
-//        srslts.setSavingStart(last);
-//        smoother.process(ssf, ssfData, frslts, srslts);
-//        mcovRev_ = new Matrix(srslts.P(last));
-//        return true;
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public MSmoothingResults getOldSmoothingResults() {
-//        return srslts0_;
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public MSmoothingResults getNewSmoothingResults() {
-//        if (srslts1_ == null) {
-//            Matrix M = newset_.generateMatrix(fullDomain_);
-//            smoothNewData(M);
-//        }
-//        return srslts1_;
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public IMSsf getSsf() {
-//        return ssf_;
-//    }
-//
-//    private void computeNewsCovariance() {
-//        TsFrequency freq = last_.getFrequency();
-//        List<Update> updates = updates_.news();
-//        int n = updates.size();
-//        int c = model_.getBlockLength();
-//        int xc = modelex_.getBlockLength();
-//        int nb = model_.getFactorsCount();
-//        lcov_ = new Matrix(n, n);
-//        int d = ssf_.getStateDim();
-//        Matrix V = new Matrix(d, d);
-//        DataBlockIterator vcols = V.columns();
-//        DataBlock vcol = vcols.getData();
-//        DataBlock tmp = new DataBlock(d);
-//        for (int i = 0; i < n; ++i) {
-//            Update iupdate = updates.get(i);
-//            int istart = last_.minus(iupdate.period.lastPeriod(freq));
-//            for (int j = 0; j <= i; ++j) {
-//                Update jupdate = updates.get(j);
-//                // copy the right covariance
-//                int jstart = last_.minus(jupdate.period.lastPeriod(freq));
-//                V.set(0);
-//                for (int r = 0; r < nb; ++r) {
-//                    for (int s = 0; s < nb; ++s) {
-//                        V.subMatrix(r * c, r * c + c, s * c, s * c + c).copy(
-//                                mcov_.subMatrix(r * xc + istart, r * xc + istart + c,
-//                                        s * xc + jstart, s * xc + jstart + c));
-//                    }
-//                }
-//
-//                tmp.set(0);
-//                vcols.begin();
-//                do {
-//                    tmp.set(vcols.getPosition(), ssf_.ZX(0, iupdate.series, vcol));
-//                } while (vcols.next());
-//                double q = ssf_.ZX(0, jupdate.series, tmp);
-//                if (i == j) {
-//                    q += model_.getMeasurements().get(iupdate.series).var;
-//                }
-//                lcov_.set(i, j, q);
-//            }
-//        }
-//        SymmetricMatrix.fromLower(lcov_);
-//        SymmetricMatrix.lcholesky(lcov_, MFilter.Zero);
-//    }
-//
-//    private void computeRevisionsCovariance() {
-//        TsFrequency freq = last_.getFrequency();
-//        List<Update> updates = updates_.revisions();
-//        int n = updates.size();
-//        int c = model_.getBlockLength();
-//        int xc = modelexRev_.getBlockLength();
-//        int nb = model_.getFactorsCount();
-//        lcovRev_ = new Matrix(n, n);
-//        int d = ssf_.getStateDim();
-//        Matrix V = new Matrix(d, d);
-//        DataBlockIterator vcols = V.columns();
-//        DataBlock vcol = vcols.getData();
-//        DataBlock tmp = new DataBlock(d);
-//        for (int i = 0; i < n; ++i) {
-//            Update iupdate = updates.get(i);
-//            int istart = last_.minus(iupdate.period.lastPeriod(freq));
-//            for (int j = 0; j <= i; ++j) {
-//                Update jupdate = updates.get(j);
-//                // copy the right covariance
-//                int jstart = last_.minus(jupdate.period.lastPeriod(freq));
-//                V.set(0);
-//                for (int r = 0; r < nb; ++r) {
-//                    for (int s = 0; s < nb; ++s) {
-//                        V.subMatrix(r * c, r * c + c, s * c, s * c + c).copy(
-//                                mcovRev_.subMatrix(r * xc + istart, r * xc + istart + c,
-//                                        s * xc + jstart, s * xc + jstart + c));
-//                    }
-//                }
-//
-//                tmp.set(0);
-//                vcols.begin();
-//                do {
-//                    tmp.set(vcols.getPosition(), ssf_.ZX(0, iupdate.series, vcol));
-//                } while (vcols.next());
-//                double q = ssf_.ZX(0, jupdate.series, tmp);
-//                if (i == j) {
-//                    q += model_.getMeasurements().get(iupdate.series).var;
-//                }
-//                lcovRev_.set(i, j, q);
-//            }
-//        }
-//        SymmetricMatrix.fromLower(lcovRev_);
-//        SymmetricMatrix.lcholesky(lcovRev_, MFilter.Zero);
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public Matrix getStateCovariance() {
-//        return mcov_;
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public TsInformationUpdates newsDetails() {
-//        return updates_;
-//    }
-//
-//    /**
-//     *
-//     * @return
-//     */
-//    public DataBlock news() {
-//        List<Update> news = updates_.news();
-//        int n = news.size();
-//        DataBlock a = new DataBlock(n);
-//        for (int i = 0; i < n; ++i) {
-//            a.set(i, news.get(i).getNews());
-//        }
-//        return a;
-//    }
-//
-//    public DataBlock revisions() {
-//        List<Update> revisions = updates_.revisions();
-//        int n = revisions.size();
-//        DataBlock a = new DataBlock(n);
-//        for (int i = 0; i < n; ++i) {
-//            a.set(i, revisions.get(i).getNews());
-//        }
-//        return a;
-//    }
-//
-//    /**
-//     *
-//     * @param series
-//     * @param p
-//     * @return
-//     */
-//    public DataBlock weights(int series, TsPeriod p) {
-//        List<Update> updates = updates_.news();
-//
-//        int n = updates.size();
-//        DataBlock a = new DataBlock(n);
-//        int c = model_.getBlockLength();
-//        int xc = modelex_.getBlockLength();
-//        int nb = model_.getFactorsCount();
-//        int d = ssf_.getStateDim();
-//        Matrix V = new Matrix(d, d);
-//        DataBlockIterator vcols = V.columns();
-//        DataBlock vcol = vcols.getData();
-//        DataBlock tmp = new DataBlock(d);
-//        int istart = last_.minus(p);
-//        TsFrequency freq = last_.getFrequency();
-//        for (int j = 0; j < n; ++j) {
-//            Update jupdate = updates.get(j);
-//            int jstart = last_.minus(jupdate.period.lastPeriod(freq));
-//            V.set(0);
-//            for (int r = 0; r < nb; ++r) {
-//                for (int s = 0; s < nb; ++s) {
-//                    V.subMatrix(r * c, r * c + c, s * c, s * c + c).copy(
-//                            mcov_.subMatrix(r * xc + istart, r * xc + istart + c,
-//                                    s * xc + jstart, s * xc + jstart + c));
-//                }
-//            }
-//            tmp.set(0);
-//            vcols.begin();
-//            do {
-//                tmp.set(vcols.getPosition(), ssf_.ZX(0, series, vcol));
-//            } while (vcols.next());
-//            double q = ssf_.ZX(0, jupdate.series, tmp);
-//            a.set(j, q);
-//        }
-//        // w = A * (LL')^-1 <-> w(LL')=A
-//        // B = wL, BL' = A <-> LB'=A'
-//        LowerTriangularMatrix.rsolve(lcov_, a, MFilter.Zero); // B
-//        LowerTriangularMatrix.lsolve(lcov_, a, MFilter.Zero);
-//        return a;
-//    }
-//
-//    public DataBlock weightsRevisions(int series, TsPeriod p) {
-//        List<Update> updates = updates_.revisions();
-//        int n = updates.size();
-//        DataBlock a = new DataBlock(n);
-//        int c = model_.getBlockLength();
-//        int xc = modelexRev_.getBlockLength();
-//        int nb = model_.getFactorsCount();
-//        int d = ssf_.getStateDim();
-//        Matrix V = new Matrix(d, d);
-//        DataBlockIterator vcols = V.columns();
-//        DataBlock vcol = vcols.getData();
-//        DataBlock tmp = new DataBlock(d);
-//        int istart = last_.minus(p);
-//        TsFrequency freq = last_.getFrequency();
-//        for (int j = 0; j < n; ++j) {
-//            Update jupdate = updates.get(j);
-//            int jstart = last_.minus(jupdate.period.lastPeriod(freq));
-//            V.set(0);
-//            for (int r = 0; r < nb; ++r) {
-//                for (int s = 0; s < nb; ++s) {
-//                    V.subMatrix(r * c, r * c + c, s * c, s * c + c).copy(
-//                            mcovRev_.subMatrix(r * xc + istart, r * xc + istart + c,
-//                                    s * xc + jstart, s * xc + jstart + c));
-//                }
-//            }
-//            tmp.set(0);
-//            vcols.begin();
-//            do {
-//                tmp.set(vcols.getPosition(), ssf_.ZX(0, series, vcol));
-//            } while (vcols.next());
-//            double q = ssf_.ZX(0, jupdate.series, tmp);
-//            a.set(j, q);
-//        }
-//        // w = A * (LL')^-1 <-> w(LL')=A
-//        // B = wL, BL' = A <-> LB'=A'
-//        LowerTriangularMatrix.rsolve(lcovRev_, a, MFilter.Zero); // B
-//        LowerTriangularMatrix.lsolve(lcovRev_, a, MFilter.Zero);
-//        return a;
-//    }
+    private final DynamicFactorModel model;
+    private final IMultivariateSsf ssf;
+
+    /**
+     * states relative to the old data (excluded missing values). Computed on
+     * [oldDomain.end, fullDomain.end[ (using the indices of the full domain)
+     */
+    private StateStorage oldStates;
+    /**
+     * states relative to the new data (excluded missing values). Computed on
+     * [newDomain.end, fullDomain.end[ (using the indices of the full domain)
+     */
+    private StateStorage newStates;
+    /**
+     * states relative to the revised data (excluded missing values). Computed
+     * on [oldDomain.start, fullDomain.end[ (using the indices of the full
+     * domain)
+     */
+    private StateStorage revisedStates;
+
+    /**
+     * Number of lags used to compute the impact of the news/revisions
+     */
+    private int nbnews, nbrev;
+
+    private TsInformationSet oldSet, newSet, revisedSet;
+
+    private TsInformationUpdates updates;
+    private FastMatrix covNews, lcovNews;
+    private FastMatrix covRevisions, lcovRevisions;
+
+    private int ext = 2;
+    /**
+     * common domain (= domain where all the series are defined) of the old/new
+     * data set
+     */
+    private TsDomain oldDomain, newDomain;
+    /**
+     * "Complete" domain, which is the union of the domains of the old
+     * information set and of the new information set
+     */
+    private TsDomain fullDomain;
+    /**
+     * domain containing all the news
+     */
+    private TsDomain newsDomain;
+    /**
+     * domain containing all the revisions
+     */
+    private TsDomain revisionsDomain;
+
+    /**
+     *
+     * @param model
+     */
+    public DfmNews(DynamicFactorModel model) {
+        this.model = model;
+        this.ssf = model.ssfRepresentation(0);
+    }
+
+    public TsInformationSet getOldInformationSet() {
+        return this.oldSet;
+    }
+
+    public TsInformationSet getNewInformationSet() {
+        return this.newSet;
+    }
+
+    /**
+     * Returns the old data set with revisions from the new data set. The news
+     * are not present.
+     *
+     * @return Old data + revisions
+     */
+    public TsInformationSet getRevisedInformationSet() {
+        return this.revisedSet;
+    }
+
+    public DynamicFactorModel getModel() {
+        return model;
+    }
+
+    public TsDomain getNewsDomain() {
+        return newsDomain;
+    }
+
+    public TsDomain getRevisionsDomain() {
+        return revisionsDomain;
+    }
+
+    /**
+     * Computes the news between two consecutive information set
+     *
+     * @param oldSet The old information set
+     * @param newSet The new information set
+     * @return True if the news have been successfully computed
+     */
+    public boolean process(TsInformationSet oldSet, TsInformationSet newSet) {
+        // We first remove missing values at the extremities which could disturb the processing
+        this.oldSet = oldSet;
+        this.newSet = newSet;
+        // recall : revisions = revisedSet - oldSet, news = newSet - revisedSet
+        revisedSet = this.oldSet.revisedData(this.newSet);
+        updates = this.oldSet.updates(this.newSet);    // Calculates news and revisions
+        if (updates.isEmpty()) {
+            return false;
+        }
+        computeDomains();
+        return calcNews();
+    }
+
+    private boolean calcNews() {
+        // Calculates News
+        computeNewsDomain();
+
+        FastMatrix M = FastMatrix.of(revisedSet.generateMatrix(fullDomain));
+        FastMatrix M_old = FastMatrix.of(oldSet.generateMatrix(fullDomain));
+
+        oldStates = smoothData(M_old, oldDomain.getEndPeriod());
+        if (oldStates == null) {
+            return false;
+        }
+
+        revisedStates = smoothData(M, oldDomain.getEndPeriod());
+        if (revisedStates == null) {
+            return false;
+        }
+
+        updateNews();
+
+        newStates = smoothData(M, newDomain.getEndPeriod());
+        if (newStates == null) {
+            return false;
+        }
+        computeNewsCovariance(M);
+
+        // Calculates Revisions
+        if (!updates.revisions().isEmpty()) {
+            computeRevisionsCovariance(M);
+        }
+        return true;
+    }
+
+    public double getOldForecast(int series, TsPeriod p) {
+        int pos = fullDomain.getStartPeriod().until(TsUtility.endPeriod(p, fullDomain.getAnnualFrequency()));
+        DataBlock A = oldStates.a(pos);
+        return A != null ? ssf.loading(series).ZX(pos, A) : Double.NaN;
+    }
+
+    public double getNewForecast(int series, TsPeriod p) {
+        int pos = fullDomain.getStartPeriod().until(TsUtility.endPeriod(p, fullDomain.getAnnualFrequency()));
+        DataBlock A = newStates.a(pos);
+        return A != null ? ssf.loading(series).ZX(pos, A) : Double.NaN;
+    }
+
+    public int getMaxNewsExtensionPeriod() {
+        return ext;
+    }
+
+    public void setMaxNewsExtensionPeriod(int n) {
+        if (n != ext) {
+            ext = n;
+            calcNews();
+        }
+    }
+
+    private void computeDomains() {
+        TsDomain d0 = revisedSet.getCurrentDomain();
+        TsDomain d1 = newSet.getCurrentDomain();
+        fullDomain = d0.union(d1);
+        oldDomain = revisedSet.actualData().getCommonDomain();
+        newDomain = newSet.actualData().getCommonDomain();
+        computeNewsDomain();
+        computeRevisionsDomain();
+    }
+
+    /**
+     * The news domain is defined as the domain starting at the end of the
+     * common domain of the old data. So, it starts at the first missing value
+     * (excluding starting/intermediary missing values) and it ends at the last
+     * news
+     */
+    private void computeNewsDomain() {
+        int freq = fullDomain.getAnnualFrequency();
+        TsDomain ndomain = TsInformationUpdates.updatesDomain(freq, updates.news());
+        TsPeriod start = oldDomain.getEndPeriod();
+        newsDomain = TsDomain.of(start, start.until(ndomain.getEndPeriod()));
+        int nb = model.minSsfBlockLength();
+        nbnews = nb + newsDomain.getStartPeriod().until(fullDomain.getLastPeriod());
+    }
+
+    /**
+     * For the revisions domain, we go back to 'ext' years of revisions
+     */
+    private void computeRevisionsDomain() {
+        int freq = fullDomain.getAnnualFrequency();
+        TsDomain rdomain = TsInformationUpdates.updatesDomain(freq, updates.revisions());
+        TsPeriod start = rdomain.getStartPeriod();
+        int n = start.until(oldDomain.getEndPeriod());
+        if (n > ext * freq) {
+            rdomain = rdomain.drop(n - ext * freq, 0);
+        }
+        revisionsDomain = rdomain;
+        int nb = model.minSsfBlockLength();
+        nbrev = nb + revisionsDomain.getStartPeriod().until(fullDomain.getLastPeriod());
+    }
+
+    /**
+     *
+     * @return
+     */
+    private StateStorage smoothData(FastMatrix M, TsPeriod start) {
+
+        MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
+                .calcVariance(false)
+                .build();
+        int n = fullDomain.getStartPeriod().until(start);
+        SsfMatrix data = new SsfMatrix(M.top(n).get());
+        StateStorage ss = StateStorage.light(StateInfo.Smoothed);
+        MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
+        MultivariateFilteringInformation fresults = new MultivariateFilteringInformation();
+        if (filter.process(ssf, data, fresults)) {
+            ss.prepare(ssf.getStateDim(), n, data.getObsCount());
+            smoother.process(n, fullDomain.getLength(), fresults, ss);
+            return ss;
+        } else {
+            return null;
+        }
+    }
+
+    private StateStorage smoothDataEx(int nb, FastMatrix M, TsPeriod start) {
+        IMultivariateSsf xssf = model.ssfRepresentationWithBlockLength(nb);
+        MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(xssf)
+                .calcVariance(true)
+                .build();
+        int n = fullDomain.getStartPeriod().until(start);
+        SsfMatrix data = new SsfMatrix(M.top(n).get());
+        StateStorage ss = StateStorage.light(StateInfo.Smoothed);
+        MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
+        MultivariateFilteringInformation fresults = new MultivariateFilteringInformation();
+        if (filter.process(ssf, data, fresults)) {
+            ss.prepare(ssf.getStateDim(), n, data.getObsCount());
+            smoother.process(n, fullDomain.getLength(), fresults, ss);
+            return ss;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Updates the news with the forecasts computed on the old data
+     */
+    private void updateNews() {
+        int freq = fullDomain.getAnnualFrequency();
+        TsPeriod start = fullDomain.getStartPeriod();
+        for (Update update : updates.news()) {
+            int pos = start.until(TsUtility.endPeriod(update.getPeriod(), freq));
+            update.setForecast(ssf.loading(update.getSeries()).ZX(pos, revisedStates.a(pos)));
+        }
+    }
+
+    /**
+     *
+     * @return
+     */
+    public StateStorage getOldSmoothingResults() {
+        return oldStates;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public StateStorage getNewSmoothingResults() {
+        return newStates;
+    }
+
+    private void computeNewsCovariance(FastMatrix M) {
+
+        StateStorage ss = smoothDataEx(nbnews, M, newsDomain.getLastPeriod());
+        covNews = ss.P(fullDomain.length() - 1);
+
+        int freq = fullDomain.getAnnualFrequency();
+        List<Update> lupdates = this.updates.news();
+        int nupdates = lupdates.size();
+        int c = model.measurementsLags() + 1;
+        int nf = model.getNfactors();
+        int d = c * nf;
+        int xc = nbnews;
+        int n = fullDomain.length() - 1;
+        lcovNews = FastMatrix.square(nupdates);
+        FastMatrix V = FastMatrix.square(d);
+        DataBlockIterator vcols = V.columnsIterator();
+        DataBlock tmp = DataBlock.make(d);
+        TsPeriod end = fullDomain.getEndPeriod();
+        for (int i = 0; i < nupdates; ++i) {
+            Update iupdate = lupdates.get(i);
+            int istart = TsUtility.endPeriod(iupdate.getPeriod(), freq).until(end);
+            for (int j = 0; j <= i; ++j) {
+                Update jupdate = lupdates.get(j);
+                // copy the right covariance
+                int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
+                V.set(0);
+                for (int r = 0; r < nf; ++r) {
+                    for (int s = 0; s < nf; ++s) {
+                        V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
+                                s * xc + jstart, c));
+                    }
+                }
+
+                vcols.begin();
+                tmp.set(vcols, col -> ssf.loading(iupdate.getSeries()).ZX(n - istart, col));
+                double q = ssf.loading(jupdate.getSeries()).ZX(n - jstart, tmp);
+                if (i == j) {
+                    q += model.getMeasurements().get(iupdate.getSeries()).getVariance();
+                }
+                lcovNews.set(i, j, q);
+            }
+        }
+        SymmetricMatrix.fromLower(lcovNews);
+        SymmetricMatrix.lcholesky(lcovNews, State.ZERO);
+    }
+
+    private void computeRevisionsCovariance(FastMatrix M) {
+        StateStorage ss = smoothDataEx(nbrev, M, revisionsDomain.getLastPeriod());
+        covRevisions = ss.P(fullDomain.length() - 1);
+
+        int freq = fullDomain.getAnnualFrequency();
+        List<Update> lupdates = updates.revisions();
+        int nupdates = lupdates.size();
+        int c = model.measurementsLags() + 1;
+        int nf = model.getNfactors();
+        int d = c * nf;
+        int xc = nbrev;
+        int n = fullDomain.length() - 1;
+        lcovRevisions = FastMatrix.square(nupdates);
+        FastMatrix V = FastMatrix.square(d);
+        DataBlockIterator vcols = V.columnsIterator();
+        DataBlock tmp = DataBlock.make(d);
+        TsPeriod end = fullDomain.getEndPeriod();
+        for (int i = 0; i < nupdates; ++i) {
+            Update iupdate = lupdates.get(i);
+            int istart = TsUtility.endPeriod(iupdate.getPeriod(), freq).until(end);
+            for (int j = 0; j <= i; ++j) {
+                Update jupdate = lupdates.get(j);
+                // copy the right covariance
+                int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
+                V.set(0);
+                for (int r = 0; r < nf; ++r) {
+                    for (int s = 0; s < nf; ++s) {
+                        V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
+                                s * xc + jstart, c));
+                    }
+                }
+
+                vcols.begin();
+                tmp.set(vcols, col -> ssf.loading(iupdate.getSeries()).ZX(n - istart, col));
+                double q = ssf.loading(jupdate.getSeries()).ZX(n - jstart, tmp);
+                if (i == j) {
+                    q += model.getMeasurements().get(n - iupdate.getSeries()).getVariance();
+                }
+                lcovRevisions.set(i, j, q);
+            }
+        }
+        SymmetricMatrix.fromLower(lcovRevisions);
+        SymmetricMatrix.lcholesky(lcovRevisions, State.ZERO);
+    }
+
+    /**
+     *
+     * @return
+     */
+    public FastMatrix getStateCovariance() {
+        return covNews;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public TsInformationUpdates newsDetails() {
+        return updates;
+    }
+
+    /**
+     *
+     * @return
+     */
+    public DataBlock news() {
+        List<Update> news = updates.news();
+        int n = news.size();
+        DataBlock a = DataBlock.make(n);
+        for (int i = 0; i < n; ++i) {
+            a.set(i, news.get(i).getNews());
+        }
+        return a;
+    }
+
+    public DataBlock revisions() {
+        List<Update> revisions = updates.revisions();
+        int n = revisions.size();
+        DataBlock a = DataBlock.make(n);
+        for (int i = 0; i < n; ++i) {
+            a.set(i, revisions.get(i).getNews());
+        }
+        return a;
+    }
+
+    public DataBlock weights(int series, TsPeriod p) {
+        List<Update> lupdates = this.updates.news();
+        int nupdates = lupdates.size();
+        DataBlock a = DataBlock.make(nupdates);
+        int nf = model.getNfactors();
+        int c = model.measurementsLags() + 1;
+        int d = c * nf;
+        int xc = nbnews;
+        int n = fullDomain.length() - 1;
+        FastMatrix V = FastMatrix.square(d);
+        DataBlockIterator vcols = V.columnsIterator();
+        DataBlock tmp = DataBlock.make(d);
+        TsPeriod end = fullDomain.getLastPeriod();
+        int freq = end.annualFrequency();
+        int istart = TsUtility.lastPeriod(p, freq).until(end);
+        for (int j = 0; j < nupdates; ++j) {
+            Update jupdate = lupdates.get(j);
+            int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
+            V.set(0);
+            for (int r = 0; r < nf; ++r) {
+                for (int s = 0; s < nf; ++s) {
+                    V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
+                            s * xc + jstart, c));
+                }
+            }
+            vcols.begin();
+            tmp.set(vcols, col -> ssf.loading(series).ZX(n - istart, col));
+            double q = ssf.loading(jupdate.getSeries()).ZX(n - jstart, tmp);
+            a.set(j, q);
+        }
+        // w = A * (LL')^-1 <-> w(LL')=A
+        // B = wL, BL' = A <-> LB'=A'
+        LowerTriangularMatrix.solveLx(lcovNews, a, State.ZERO); // B
+        LowerTriangularMatrix.solvexL(lcovNews, a, State.ZERO);
+        return a;
+    }
+
+    public DataBlock weightsRevisions(int series, TsPeriod p) {
+        List<Update> lupdates = this.updates.revisions();
+        int nupdates = lupdates.size();
+        DataBlock a = DataBlock.make(nupdates);
+        int c = model.measurementsLags() + 1;
+        int nf = model.getNfactors();
+        int d = c * nf;
+        int xc = nbrev;
+        int n = fullDomain.length() - 1;
+        FastMatrix V = FastMatrix.square(d);
+        DataBlockIterator vcols = V.columnsIterator();
+        DataBlock tmp = DataBlock.make(d);
+        int istart = p.until(fullDomain.getLastPeriod());
+        int freq = fullDomain.getAnnualFrequency();
+        TsPeriod end = fullDomain.getLastPeriod();
+        for (int j = 0; j < nupdates; ++j) {
+            Update jupdate = lupdates.get(j);
+            int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
+            V.set(0);
+            for (int r = 0; r < nf; ++r) {
+                for (int s = 0; s < nf; ++s) {
+                    V.extract(r * c, c, s * c, c).copy(covRevisions.extract(r * xc + istart, c,
+                            s * xc + jstart, c));
+                }
+            }
+            tmp.set(0);
+            vcols.begin();
+            tmp.set(vcols, col -> ssf.loading(series).ZX(n-istart, col));
+            double q = ssf.loading(jupdate.getSeries()).ZX(n-jstart, tmp);
+            a.set(j, q);
+        }
+        // w = A * (LL')^-1 <-> w(LL')=A
+        // B = wL, BL' = A <-> LB'=A'
+        LowerTriangularMatrix.solveLx(lcovRevisions, a, State.ZERO); // B
+        LowerTriangularMatrix.solvexL(lcovRevisions, a, State.ZERO);
+        return a;
+    }
 }

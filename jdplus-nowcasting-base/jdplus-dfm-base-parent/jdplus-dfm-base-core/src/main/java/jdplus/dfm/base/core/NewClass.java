@@ -16,23 +16,10 @@
  */
 package jdplus.dfm.base.core;
 
-import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.api.information.GenericExplorable;
-import jdplus.toolkit.base.api.math.matrices.Matrix;
-import jdplus.toolkit.base.core.ssf.StateStorage;
-import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
-
 /**
  *
  * @author palatej
  */
-@lombok.Value
-@lombok.Builder(builderClassName="builder")
-public class DfmResults implements GenericExplorable {
+public class NewClass {
     
-    DynamicFactorModel dfm;
-    Likelihood likelihood;
-    DoubleSeq gradient;
-    Matrix hessian;
-    StateStorage smoothedStates;
 }

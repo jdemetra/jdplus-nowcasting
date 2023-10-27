@@ -31,31 +31,32 @@ public class TsInformationUpdates {
     /**
      *
      */
+    @lombok.AllArgsConstructor
     public static class Update {
 
-//        Update(final TsPeriod period, final int series) {
-//            this.period = period;
-//            this.series = series;
-//        }
-        Update(final TsPeriod period, final int series) {
+        /**
+         *
+         */
+        @lombok.Getter
+        private final TsPeriod period;
+        /**
+         *
+         */
+        @lombok.Getter
+        private final int series;
+
+        @lombok.Getter
+        private final double observation;
+
+        @lombok.Getter
+        @lombok.Setter
+        private double forecast;
+
+        public Update(final TsPeriod period, final int series, final double y) {
             this.period = period;
             this.series = series;
-        }
-
-        /**
-         *
-         * @return
-         */
-        public double getObservation() {
-            return y;
-        }
-
-        /**
-         *
-         * @return
-         */
-        public double getForecast() {
-            return fy;
+            this.observation = y;
+            this.forecast = y;
         }
 
         /**
@@ -63,46 +64,24 @@ public class TsInformationUpdates {
          * @return
          */
         public double getNews() {
-            return y - fy;
+            return observation - forecast;
         }
 
-        /**
-         *
-         */
-        public final TsPeriod period;
-        /**
-         *
-         */
-        public final int series;
-
-        public double y, fy;
-
-        @Override
-        public String toString() {
-            StringBuilder builder = new StringBuilder();
-            builder.append("var:").append(series).append('\t').append(period)
-                    .append('\t').append(y).append('\t').append(fy);
-            return builder.toString();
-        }
     }
 
     private final List<Update> news = new ArrayList<>();
     private final List<Update> revisions = new ArrayList<>();
 
-    TsInformationUpdates() {
-    }
-
     /**
      *
-     * @param p
-     * @param series
+     * @param update
      */
-    public void add(TsPeriod p, int series) {
-        news.add(new Update(p, series));
+    public void addNews(Update update) {
+        news.add(update);
     }
 
-    public void addRevision(TsPeriod p, int series) {
-        revisions.add(new Update(p, series));
+    public void addRevision(Update update) {
+        revisions.add(update);
     }
 
     /**
@@ -114,9 +93,9 @@ public class TsInformationUpdates {
         TsPeriod first = null;
         for (Update update : news) {
             if (first == null) {
-                first = TsUtility.lastPeriod(update.period, freq);
+                first = TsUtility.endPeriod(update.period, freq);
             } else {
-                TsPeriod cur = TsUtility.lastPeriod(update.period, freq);
+                TsPeriod cur = TsUtility.endPeriod(update.period, freq);
                 if (cur.isBefore(first)) {
                     first = cur;
                 }
@@ -134,9 +113,9 @@ public class TsInformationUpdates {
         TsPeriod last = null;
         for (Update update : news) {
             if (last == null) {
-                last = TsUtility.lastPeriod(update.period,freq);
+                last = TsUtility.endPeriod(update.period, freq);
             } else {
-                TsPeriod cur = TsUtility.lastPeriod(update.period,freq);
+                TsPeriod cur = TsUtility.endPeriod(update.period, freq);
                 if (cur.isAfter(last)) {
                     last = cur;
                 }
@@ -151,21 +130,17 @@ public class TsInformationUpdates {
      * @param updates
      * @return
      */
-    public TsDomain updatesDomain(int freq, List<Update> updates) {
+    public static TsDomain updatesDomain(int freq, List<Update> updates) {
         TsPeriod first = null;
         TsPeriod last = null;
         for (Update update : updates) {
-            if (first == null) {
-                first = TsUtility.lastPeriod(update.period,freq);
-                last = first;
-            } else {
-                TsPeriod cur = TsUtility.lastPeriod(update.period,freq);
-                if (cur.isBefore(first)) {
-                    first = cur;
-                }
-                if (cur.isAfter(last)) {
-                    last = cur;
-                }
+            TsPeriod cur = TsUtility.lastPeriod(update.period, freq);
+            if (first == null || cur.isBefore(first)) {
+                first = cur;
+            }
+            cur = cur.plus(1);
+            if (last == null || cur.isAfter(last)) {
+                last = cur;
             }
         }
         if (first == null || last == null) {
@@ -184,5 +159,9 @@ public class TsInformationUpdates {
 
     public List<Update> revisions() {
         return Collections.unmodifiableList(revisions);
+    }
+    
+    public boolean isEmpty(){
+        return news.isEmpty() && revisions.isEmpty();
     }
 }

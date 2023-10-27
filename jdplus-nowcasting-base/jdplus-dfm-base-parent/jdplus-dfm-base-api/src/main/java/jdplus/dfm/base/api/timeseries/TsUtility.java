@@ -28,17 +28,22 @@ import jdplus.toolkit.base.api.timeseries.TsUnit;
 @lombok.experimental.UtilityClass
 public class TsUtility {
 
-    public TsPeriod lastPeriod(TsPeriod p, int annualFrequency) {
+    /**
+     * Gets the first period of the given periodicity after the given period
+     * @param p
+     * @param annualFrequency
+     * @return 
+     */
+    public TsPeriod endPeriod(TsPeriod p, int annualFrequency) {
         int pfreq = p.annualFrequency();
         if (pfreq == annualFrequency) {
-            return p;
+            return p.plus(1);
         }
         TsUnit unit = TsUnit.ofAnnualFrequency(annualFrequency);
-        LocalDate last = p.end().toLocalDate().minusDays(1);
-        return TsPeriod.of(unit, last);
+        return TsPeriod.of(unit, p.end());
     }
 
-    public TsPeriod firstPeriod(TsPeriod p, int annualFrequency) {
+    public TsPeriod startPeriod(TsPeriod p, int annualFrequency) {
         int pfreq = p.annualFrequency();
         if (pfreq == annualFrequency) {
             return p;
@@ -47,20 +52,30 @@ public class TsUtility {
         return TsPeriod.of(unit, p.start());
     }
 
+    public TsPeriod lastPeriod(TsPeriod p, int annualFrequency) {
+        int pfreq = p.annualFrequency();
+        if (pfreq == annualFrequency) {
+            return p;
+        }
+        TsUnit unit = TsUnit.ofAnnualFrequency(annualFrequency);
+        return TsPeriod.of(unit, p.end().minusDays(1));
+    }
+
     public boolean isMissing(TsData s, int idx) {
-        return Double.isFinite(s.getValue(idx));
+        return Double.isNaN(s.getValue(idx));
+    }
+
+    public LocalDate endDay(TsPeriod p) {
+        return p.end().toLocalDate();
     }
 
     public LocalDate lastDay(TsPeriod p) {
         return p.end().toLocalDate().minusDays(1);
     }
 
-    public TsData extend(final TsData data, final LocalDate lastday) {
-        TsPeriod s = TsPeriod.of(data.getTsUnit(), lastday);
-        if (!lastday.equals(lastDay(s))) {
-            s = s.previous();
-        }
-        int n = data.getStart().until(s) + 1;
+    public TsData extend(final TsData data, final LocalDate endDay) {
+        TsPeriod s = TsPeriod.of(data.getTsUnit(), endDay);
+        int n = data.getStart().until(s);
         return data.extend(0, n - data.length());
     }
 

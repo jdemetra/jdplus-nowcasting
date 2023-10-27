@@ -55,8 +55,20 @@ public class TsInformationSetTest {
                 
         TsInformationSet infoSet=new TsInformationSet(SERIES);
         Matrix M = infoSet.generateMatrix(TsDomain.of(TsPeriod.monthly(1975, 1), 300));
+        assertTrue(M.row(299).anyMatch(x->!Double.isNaN(x)));
         M = infoSet.generateMatrix(TsDomain.of(TsPeriod.monthly(2000, 1), 1));
-        M = infoSet.generateMatrix(TsDomain.of(TsPeriod.monthly(2000, 5), 100));
+        assertTrue(M.row(0).anyMatch(x->!Double.isNaN(x)));
+        M = infoSet.generateMatrix(TsDomain.of(TsPeriod.monthly(2030, 5), 120));
+        assertTrue(M.row(100).allMatch(x->Double.isNaN(x)));
     }
     
+    @Test
+    public void testDomain() {
+                
+        TsInformationSet infoSet=new TsInformationSet(SERIES);
+        TsDomain udomain = infoSet.getCurrentDomain();
+        TsDomain idomain = infoSet.getCommonDomain();
+        assertTrue(udomain.length()>idomain.length());
+        assertTrue(idomain.isEmpty());
+    }
 }

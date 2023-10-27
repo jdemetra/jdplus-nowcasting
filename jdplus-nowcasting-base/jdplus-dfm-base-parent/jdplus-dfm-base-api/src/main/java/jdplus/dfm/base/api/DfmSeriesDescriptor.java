@@ -14,25 +14,27 @@
  * See the Licence for the specific language governing permissions and 
  * limitations under the Licence.
  */
-package jdplus.dfm.base.core;
+package jdplus.dfm.base.api;
 
-import jdplus.toolkit.base.api.data.DoubleSeq;
-import jdplus.toolkit.base.api.information.GenericExplorable;
-import jdplus.toolkit.base.api.math.matrices.Matrix;
-import jdplus.toolkit.base.core.ssf.StateStorage;
-import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
+import java.util.List;
 
 /**
  *
  * @author palatej
  */
 @lombok.Value
-@lombok.Builder(builderClassName="builder")
-public class DfmResults implements GenericExplorable {
+@lombok.Builder(builderClassName="Builder", toBuilder=true)
+public class DfmSeriesDescriptor {
     
-    DynamicFactorModel dfm;
-    Likelihood likelihood;
-    DoubleSeq gradient;
-    Matrix hessian;
-    StateStorage smoothedStates;
+    @lombok.Singular
+    List<MeasurementSpec.Transformation> transformations;
+    double mean, stdev;
+    String description;
+    // Number of days between the end of the observation period and its publication
+    int delay;
+ 
+    @Override
+    public String toString(){
+        return description;
+    }
 }

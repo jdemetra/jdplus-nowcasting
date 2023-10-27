@@ -16,6 +16,7 @@
  */
 package internal.jdplus.dfm.base.core;
 
+import java.util.List;
 import jdplus.dfm.base.core.DynamicFactorModel;
 import jdplus.dfm.base.core.MeasurementDescriptor;
 import jdplus.dfm.base.core.var.VarDescriptor;
@@ -30,15 +31,15 @@ import jdplus.toolkit.base.core.ssf.multivariate.MultivariateSsf;
 @lombok.experimental.UtilityClass
 public class SsfDfm {
 
-    private int extendedLags(int nlags, MeasurementDescriptor[] mdesc) {
-        int nlx = nlags;
-        for (int i = 0; i < mdesc.length; ++i) {
-            int n = mdesc[i].getType().getLength();
-            if (nlx < n) {
-                nlx = n;
+    private int blockLength(int nlags, List<MeasurementDescriptor> mdesc) {
+        int nb = nlags+1;
+        for (MeasurementDescriptor desc: mdesc) {
+            int n = desc.getType().getLength();
+            if (nb < n) {
+                nb = n;
             }
         }
-        return nlx;
+        return nb;
     }
 
     private static FastMatrix convert(Matrix M) {
@@ -55,20 +56,24 @@ public class SsfDfm {
     }
 
     public MultivariateSsf of(DynamicFactorModel dfm, int extendedLags) {
+        int nb = blockLength(Math.max(extendedLags, dfm.getNlags()), dfm.getMeasurements());
+        return withBlockLength(dfm, nb);
+    }
+        
+    public MultivariateSsf withBlockLength(DynamicFactorModel dfm, int blockLength){
         VarDescriptor var = dfm.getVar();
         MeasurementDescriptor[] mdesc = dfm.getMeasurements().toArray(MeasurementDescriptor[]::new);
-        int nxlags = extendedLags(Math.max(extendedLags, var.getNlags()), mdesc);
         int nf = var.getNfactors();
-        Dynamics dyn = Dynamics.of(convert(var.getCoefficients()), FastMatrix.of(var.getInnovationsVariance()), nxlags);
+        Dynamics dyn = Dynamics.of(convert(var.getCoefficients()), FastMatrix.of(var.getInnovationsVariance()), blockLength);
         Initialization initialization = switch (var.getInitialization()) {
             case Zero ->
-                Initialization.zero(var.getInnovationsVariance(), nxlags);
+                Initialization.zero(var.getInnovationsVariance(), blockLength);
             case Unconditional ->
                 Initialization.unconditional(dyn);
             default ->
                 throw new IllegalArgumentException();
         };
-        Measurements m = Measurements.of(nf, nxlags, mdesc);
+        Measurements m = Measurements.of(nf, blockLength, mdesc);
         return new MultivariateSsf(initialization, dyn, m);
     }
 

@@ -248,18 +248,18 @@ public class PrincipalComponentsInitializer implements IDfmInitializer {
 
     private List<MeasurementDescriptor> computeLoadings(DynamicFactorModel model) {
         // creates the matrix of factors
-        int nf = model.getNfactors(), nl=model.getNlags(), ntot = nf*nl;
-        FastMatrix M = FastMatrix.make(data.getRowsCount() - (ntot - 1), nf * ntot);
+        int nf = model.getNfactors(), nl=model.measurementsLags(), blen=nl+1;
+        FastMatrix M = FastMatrix.make(data.getRowsCount() - nl, nf * blen);
         for (int i = 0, c = 0; i < nf; ++i) {
             DataBlock cur = pc[i].getFactor(0);
-            for (int j = 0; j < ntot; ++j) {
-                M.column(c++).copy(cur.drop(ntot - 1 - j, j));
+            for (int j = 0; j <= nl; ++j) {
+                M.column(c++).copy(cur.drop(nl - j, j));
             }
         }
         int v = 0;
         List<MeasurementDescriptor> ndescs = new ArrayList<>();
         for (MeasurementDescriptor desc : model.getMeasurements()) {
-            DataBlock y = datac.column(v++).drop(ntot - 1, 0);
+            DataBlock y = datac.column(v++).drop(nl, 0);
             if (y.isZero(Constants.getEpsilon())) {
                 ndescs.add(desc.withVariance(1));
             } else {
@@ -269,7 +269,7 @@ public class PrincipalComponentsInitializer implements IDfmInitializer {
                 for (int j = 0; j < nf; ++j) {
                     if (!Double.isNaN(desc.getCoefficient(j))) {
                         double[] x = new double[y.length()];
-                        int s = j * ntot, l = desc.getType().getLength();
+                        int s = j * blen, l = desc.getType().getLength();
                         for (int r = 0; r < x.length; ++r) {
                             x[r] = desc.getType().dot(M.row(r).extract(s, l));
                         }

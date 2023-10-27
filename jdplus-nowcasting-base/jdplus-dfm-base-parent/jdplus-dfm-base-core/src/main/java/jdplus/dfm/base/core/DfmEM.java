@@ -252,7 +252,7 @@ public class DfmEM implements IDfmInitializer {
     public DynamicFactorModel initialize(DynamicFactorModel rdfm, TsInformationSet data) {
         this.dfm = rdfm;
         this.data = data;
-        this.nxlags = rdfm.minSsfLags();
+        this.nxlags = rdfm.minSsfBlockLength();
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
                 .build();
@@ -273,6 +273,7 @@ public class DfmEM implements IDfmInitializer {
             if (!MStep()) {
                 break;
             }
+            System.out.println(logLikelihood);
         }
 
         // finishing
@@ -286,7 +287,7 @@ public class DfmEM implements IDfmInitializer {
         try {
             MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
             PredictionErrorsDecomposition results = new PredictionErrorsDecomposition();
-            filter.process(dfm.ssfRepresentation(nxlags), new SsfMatrix(FastMatrix.of(data.generateMatrix(null))), results);
+            filter.process(dfm.ssfRepresentation(0), new SsfMatrix(FastMatrix.of(data.generateMatrix(null))), results);
             Likelihood ll = results.likelihood(true);
             logLikelihood = ll.logLikelihood();
             if (adjust) {
@@ -300,7 +301,7 @@ public class DfmEM implements IDfmInitializer {
     private boolean EStep() {
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
-                .extendedLags(nxlags)
+                .extendedLags(0)
                 .build();
         if (!processor.process(dfm, data)) {
             return false;
