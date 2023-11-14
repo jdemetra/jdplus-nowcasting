@@ -7,4 +7,4 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-[Unreleased]: https://github.com/jdemetra/jd3-nowcasting/compare/...HEAD
+[Unreleased]: https://github.com/jdemetra/jd3-nowcasting/compare/e7a92dcf4dd85ff02370697c03f107772cbd6bd6...HEAD
