@@ -38,7 +38,7 @@ public class SimpleDfmMapping implements IDfmMapping {
     // [nml, nml+nm[ meas. variance (square roots). The max is fixed, which means that nm = number of measurements - 1
     // [nml+nm, nml+nm+nb*nb*nl[ var parameters 
     private final int ivmax;
-    private final double vmax;
+//    private final double vmax;
     private final int np;
     private final int nml, nm, nb, nl;
     private final int v0;
@@ -98,7 +98,6 @@ public class SimpleDfmMapping implements IDfmMapping {
             ++m;
         }
         ivmax = iv;
-        vmax = v;
         nml = n; // number of loadings
         p += nml + nm;
         v0 = p;
@@ -136,7 +135,7 @@ public class SimpleDfmMapping implements IDfmMapping {
                             .build());
                 } else {
                     m.add(dbuilder.coefficient(DoubleSeq.of(c))
-                            .variance(vmax)
+                            .variance(desc.getVariance())
                             .build());
                     
                 }
@@ -147,7 +146,7 @@ public class SimpleDfmMapping implements IDfmMapping {
         }
         
         DoubleSeq vc = vcoefficients(p);
-        FastMatrix t = FastMatrix.square(nb);
+        FastMatrix t = FastMatrix.make(template.getNfactors(), template.getNfactors()*template.getNlags());
         vc.copyTo(t.getStorage(), 0);
         return new DynamicFactorModel(new VarDescriptor(t, template.getVar().getInitialization()), m);
     }
@@ -176,8 +175,8 @@ public class SimpleDfmMapping implements IDfmMapping {
         DataBlock vc = vcoefficients(p);
         Matrix t = m.getVar().getCoefficients();
         // just keep the first lag
-        for (int k = 0; k < nb; ++k) {
-            vc.extract(k, nb).copy(t.column(k));
+        for (int k = 0, c=0; k < nb; ++k, c+=nb) {
+            vc.extract(c, nb).copy(t.column(k));
         }
         return p;
     }

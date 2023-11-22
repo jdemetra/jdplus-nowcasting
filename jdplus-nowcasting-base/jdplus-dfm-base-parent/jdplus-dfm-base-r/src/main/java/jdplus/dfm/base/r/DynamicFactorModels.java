@@ -8,14 +8,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import jdplus.dfm.base.api.MeasurementType;
-import jdplus.dfm.base.api.NumericalProcessingSpec;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.DfmEM;
 import jdplus.dfm.base.core.DfmEstimator;
 import jdplus.dfm.base.core.DfmProcessor;
 import jdplus.dfm.base.core.DfmResults;
-import jdplus.toolkit.base.api.information.GenericExplorable;
-import jdplus.toolkit.base.api.information.InformationMapping;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.dfm.base.core.DynamicFactorModel;
 import jdplus.dfm.base.core.IDfmMeasurement;
@@ -24,6 +21,8 @@ import jdplus.dfm.base.core.PrincipalComponentsInitializer;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.timeseries.TsData;
+import jdplus.toolkit.base.core.math.functions.levmar.LevenbergMarquardtMinimizer;
+import jdplus.toolkit.base.core.math.functions.ssq.ProxyMinimizer;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.r.timeseries.TsUtility;
@@ -182,15 +181,17 @@ public class DynamicFactorModels {
             dfm0 = em.initialize(dfm0, dfmData);
         }
 
-        DfmEstimator estimator = DfmEstimator.of(NumericalProcessingSpec.DEFAULT_ENABLED, dfm0.getVar().getInitialization())
-                .toBuilder()
-                .maxIterations(maxIter)
-                .maxBlockIterations(maxBlockIter)
+        DfmEstimator estimator = DfmEstimator.builder()
+                .minimizer(ProxyMinimizer.builder(
+                        LevenbergMarquardtMinimizer.builder()))
                 .maxInitialIter(simplModelIter)
+                .maxBlockIterations(maxBlockIter)
+                .maxIterations(maxIter)
                 .independentVarShocks(independantVAShocks)
                 .mixed(mixedEstimation)
                 .precision(eps)
                 .build();
+
         estimator.estimate(dfm0, dfmData);
         DynamicFactorModel dfm = estimator.getEstimatedModel();
 
@@ -202,7 +203,7 @@ public class DynamicFactorModels {
 //            System.out.println(Arrays.toString(coefficient.toArray()));
 //        }
         DfmProcessor processor = DfmProcessor.builder().build();
-        processor.process(dfm, dfmData);
+        boolean processed = processor.process(dfm, dfmData);
 
         return DfmResults.builder()
                 .dfm(dfm)
