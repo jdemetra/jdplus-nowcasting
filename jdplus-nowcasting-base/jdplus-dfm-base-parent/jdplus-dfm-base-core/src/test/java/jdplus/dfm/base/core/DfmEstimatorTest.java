@@ -40,7 +40,7 @@ public class DfmEstimatorTest {
         PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
         TsDomain domain = dfmdata.getCurrentDomain().drop(120, 12);
         initializer.setEstimationDomain(domain);
-       DynamicFactorModel model0 = initializer.initialize(dmodel_u, dfmdata);
+        DynamicFactorModel model0 = initializer.initialize(dmodel_u, dfmdata);
 
         DynamicFactorModel dfm = em.initialize(model0, dfmdata);
         NumericalProcessingSpec nspec = NumericalProcessingSpec.DEFAULT_ENABLED.toBuilder()

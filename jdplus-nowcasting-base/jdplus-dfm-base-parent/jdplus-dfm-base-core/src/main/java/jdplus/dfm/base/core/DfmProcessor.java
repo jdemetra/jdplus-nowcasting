@@ -16,6 +16,7 @@
  */
 package jdplus.dfm.base.core;
 
+import internal.jdplus.dfm.base.core.MSmoother;
 import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
@@ -23,7 +24,6 @@ import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.StateStorage;
 import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateFilteringInformation;
-import jdplus.toolkit.base.core.ssf.multivariate.MultivariateOrdinarySmoother;
 import jdplus.toolkit.base.core.ssf.multivariate.SsfMatrix;
 
 /**
@@ -93,7 +93,7 @@ public class DfmProcessor {
         try {
             clear();
             IMultivariateSsf ssf = model.ssfRepresentation(nxlags);
-            MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
+            MSmoother smoother = MSmoother.builder(ssf)
                     .calcVariance(calcVariance)
                     .build();
 
