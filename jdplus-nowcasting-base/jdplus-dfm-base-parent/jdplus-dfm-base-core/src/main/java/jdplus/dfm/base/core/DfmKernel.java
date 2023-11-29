@@ -33,7 +33,7 @@ public class DfmKernel {
     private DfmProcessor processor;
 
     public DfmResults process(DynamicFactorModel model, TsInformationSet input) {
-        DfmResults.builder builder = DfmResults.builder();
+        DfmResults.Builder builder = DfmResults.builder();
         DynamicFactorModel dfm=model;
         if (initializer != null) {
             dfm=initializer.initialize(dfm, input);

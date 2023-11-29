@@ -14,6 +14,7 @@
  * See the Licence for the specific language governing permissions and 
  * limitations under the Licence.
  */
+import jdplus.toolkit.base.api.information.InformationExtractor;
 
 module jdplus.sts.base.r {
 
@@ -29,4 +30,8 @@ module jdplus.sts.base.r {
     requires jdplus.dfm.base.core;
     
     exports jdplus.dfm.base.r;
+
 }
+
+
+

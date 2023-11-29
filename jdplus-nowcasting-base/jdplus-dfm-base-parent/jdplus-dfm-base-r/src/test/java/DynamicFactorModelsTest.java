@@ -76,12 +76,11 @@ public class DynamicFactorModelsTest {
         
         DynamicFactorModel dfmInit = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Zero", null);
         
-        DfmResults dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data, 12, start, false); 
-        // --> dfm0 tested and correct (same results as GUI)!
-        DfmResults dfm2 = DynamicFactorModels.estimate_EM(dfmInit, data, 12, start, false, true, 100, 0.000000001); 
-        // --> Significant differences with GUI -> still to investigate!
-        //DfmResults dfm3 = DynamicFactorModels.estimate_ML(dfmInit, data, 12, start, false, true, true, 
-        //        100, 0.000000001, 1000, 5, 15, false, true, 0.000000001);
-        // DfmResults dfm -> Does not work: on third iteration of ML, problem in MultivariateUpdateInformation SolveLx (even though it works in GUI!)
+        DfmResults dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data, 12, start, false, 12); // tested and same results as GUI
+        //DfmResults dfm2 = DynamicFactorModels.estimate_EM(dfmInit, data, 12, start, false, 12, true, 100, 0.000000001); // tested and same results as GUI
+        //DfmResults dfm3 = DynamicFactorModels.estimate_ML(dfmInit, data, 12, start, false, 12, false, false, 100, 0.000000001, 1000, 5, 15, false, true, 0.000000001);
+        //Matrix test = dfm1.getHessian();
+        //System.out.println(test.toString());
+        
     }
 }
