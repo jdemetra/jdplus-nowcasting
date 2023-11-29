@@ -19,11 +19,6 @@
         <!-- compile and runtime -->
         <dependency>
             <groupId>eu.europa.ec.joinup.sat</groupId>
-            <artifactId>jdplus-toolkit-base-api</artifactId>
-            <version>${jdplus-main.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>eu.europa.ec.joinup.sat</groupId>
             <artifactId>jdplus-toolkit-base-core</artifactId>
             <version>${jdplus-main.version}</version>
         </dependency>

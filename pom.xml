@@ -12,6 +12,7 @@
     <name>${project.artifactId}</name>
     <description>JDemetra+ v3 - nowcasting extensions</description>
     <url>https://github.com/${x.github.user}/${x.github.repo}</url>
+    <inceptionYear>2013</inceptionYear>
 
     <licenses>
         <license>
@@ -58,7 +59,7 @@
 
         <!-- dependencies -->
         <jd2.version>2.2.4</jd2.version>
-        <jdplus-main.version>3.1.1</jdplus-main.version>
+        <jdplus-main.version>3.2.0</jdplus-main.version>
         <protobuf.version>3.21.12</protobuf.version>
     </properties>
 
@@ -345,7 +346,7 @@
                                 <requireProperty>
                                     <property>project.artifactId</property>
                                     <message>Project artifactId must follow JD3 pattern</message>
-                                    <regex>^(jdplus)-(\w+)(?:-(base|cli|desktop)(?:-(\w+))?)?$</regex>
+                                    <regex>^(jdplus)-(\w+)(?:-(base|cli|desktop|bom)(?:-(\w+))?)?$</regex>
                                 </requireProperty>
                                 <requireReleaseDeps>
                                     <onlyWhenRelease>true</onlyWhenRelease>

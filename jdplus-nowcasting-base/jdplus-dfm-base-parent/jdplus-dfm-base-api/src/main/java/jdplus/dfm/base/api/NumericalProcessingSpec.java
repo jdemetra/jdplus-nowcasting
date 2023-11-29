@@ -30,9 +30,9 @@ public class NumericalProcessingSpec implements Cloneable {
         LEVENBERGMARQUARDT
     }
 
-    public static final int DEF_VERSION = 2, DEF_MAXITER = 100, DEF_MAXSITER = 0,
+    public static final int DEF_VERSION = 2, DEF_MAXITER = 100, DEF_MAXSITER = 10,
             DEF_NITER = 5;
-    public static final Boolean DEF_BLOCK = true, DEF_MIXED = true, DEF_IVAR = false;
+    public static final Boolean DEF_BLOCK = true, DEF_MIXED = false, DEF_IVAR = true;
     public static final double DEF_EPS = 1e-6;
 
     public static Builder builder() {

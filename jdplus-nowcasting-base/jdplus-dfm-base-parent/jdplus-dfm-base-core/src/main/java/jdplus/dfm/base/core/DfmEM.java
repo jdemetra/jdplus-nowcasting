@@ -32,7 +32,6 @@ import jdplus.toolkit.base.api.data.DoubleSeqCursor;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.GeneralMatrix;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
-import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.ssf.StateStorage;
 import jdplus.toolkit.base.core.ssf.multivariate.MultivariateOrdinaryFilter;
 import jdplus.toolkit.base.core.ssf.multivariate.PredictionErrorsDecomposition;
@@ -273,7 +272,6 @@ public class DfmEM implements IDfmInitializer {
             if (!MStep()) {
                 break;
             }
-            System.out.println(logLikelihood);
         }
 
         // finishing
@@ -306,7 +304,7 @@ public class DfmEM implements IDfmInitializer {
         if (!processor.process(dfm, data)) {
             return false;
         }
-        Likelihood ll = processor.getFilteringResults().likelihood(false);
+        Likelihood ll = processor.getFilteringResults().likelihood(true);
         if (iter_ > 1 && Math.abs(logLikelihood - ll.logLikelihood()) < eps) {
             return false;
         }

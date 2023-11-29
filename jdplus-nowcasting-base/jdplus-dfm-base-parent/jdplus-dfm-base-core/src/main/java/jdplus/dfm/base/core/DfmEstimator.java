@@ -40,82 +40,82 @@ import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
  * @author Jean Palate
  */
 public class DfmEstimator implements IDfmEstimator {
-    
+
     private static final String SIMPLIFIED = "Optimizing simplified model",
             MSTEP = "Optimizing measurements", VSTEP = "Optimizing Var model", ALL = "Optimizing all parameters";
-    
+
     public static final int DEF_MAXITER = 100, DEF_NSTART = 0, DEF_NNEXT = 5, DEF_MAXBLOCKITERATIONS = 100, DEF_MAXEMUP = 5;
-    
+
     public static class Builder {
-        
+
         private int maxIter = DEF_MAXITER, maxBlockIterations = DEF_MAXBLOCKITERATIONS, maxEmUp = DEF_MAXEMUP;
         private FunctionMinimizer.Builder minimizer;
         private int maxInitialIter = DEF_NSTART, maxIntermediateIter = DEF_NNEXT;
         private boolean mixed = true, independentVarShocks = true;
         private double eps = 1e-9;
         private TsDomain edomain = null;
-        
+
         public Builder maxIterations(int maxiter) {
             this.maxIter = maxiter;
             return this;
         }
-        
+
         public Builder maxInitialIter(int maxInitialIter) {
             this.maxInitialIter = maxInitialIter;
             return this;
         }
-        
+
         public Builder maxIntermediateIter(int maxIntermediateIter) {
             this.maxIntermediateIter = maxIntermediateIter;
             return this;
         }
-        
+
         public Builder maxEmUp(int maxEmUp) {
             this.maxEmUp = maxEmUp;
             return this;
         }
-        
+
         public Builder maxBlockIterations(int maxblocks) {
             this.maxBlockIterations = maxblocks;
             return this;
         }
-        
+
         public Builder mixed(boolean mixed) {
             this.mixed = mixed;
             return this;
         }
-        
+
         public Builder independentVarShocks(boolean independentVarShocks) {
             this.independentVarShocks = independentVarShocks;
             return this;
         }
-        
+
         public Builder minimizer(FunctionMinimizer.Builder minimizer) {
             this.minimizer = minimizer;
             return this;
         }
-        
+
         public Builder estimationDomain(TsDomain domain) {
             this.edomain = domain;
             return this;
         }
-        
+
         public Builder precision(double eps) {
             this.eps = eps;
             return this;
         }
-        
+
         public DfmEstimator build() {
             return new DfmEstimator(this);
         }
     }
-    
+
     public static Builder builder() {
         return new Builder();
     }
-    
+
     public static DfmEstimator of(NumericalProcessingSpec spec, ISsfInitialization.Type type) {
-        
+
         FunctionMinimizer.Builder minimizer;
         minimizer = switch (spec.getMethod()) {
             case BFGS ->
@@ -123,7 +123,7 @@ public class DfmEstimator implements IDfmEstimator {
             default ->
                 ProxyMinimizer.builder(LevenbergMarquardtMinimizer.builder());
         };
-        
+
         return builder()
                 .minimizer(minimizer)
                 .maxInitialIter(spec.getMaxInitialIter())
@@ -134,7 +134,7 @@ public class DfmEstimator implements IDfmEstimator {
                 .precision(spec.getPrecision())
                 .build();
     }
-    
+
     private final int maxIter;
     private final int maxInitialIter, maxIntermediateIter, maxBlockIterations, maxEmUp;
     private final boolean mixed;
@@ -142,13 +142,13 @@ public class DfmEstimator implements IDfmEstimator {
     private final double eps;
     private final FunctionMinimizer.Builder minimizer;
     private final TsDomain edomain;
-    
+
     private boolean converged;
     private DynamicFactorModel dfm;
     private Likelihood likelihood;
     private FastMatrix hessian;
     private DoubleSeq gradient;
-    
+
     public DfmEstimator(Builder builder) {
         this.maxIter = builder.maxIter;
         this.maxInitialIter = builder.maxInitialIter;
@@ -161,7 +161,7 @@ public class DfmEstimator implements IDfmEstimator {
         this.edomain = builder.edomain;
         this.eps = builder.eps;
     }
-    
+
     public Builder toBuilder() {
         return builder()
                 .maxIterations(maxIter)
@@ -174,13 +174,13 @@ public class DfmEstimator implements IDfmEstimator {
                 .mixed(mixed)
                 .minimizer(minimizer)
                 .precision(eps);
-        
+
     }
-    
+
     public boolean hasConverged() {
         return converged;
     }
-    
+
     private DynamicFactorModel normalize(DynamicFactorModel model) {
         if (independentVarShocks) {
             return model.lnormalize();
@@ -188,7 +188,7 @@ public class DfmEstimator implements IDfmEstimator {
             return model.normalize();
         }
     }
-    
+
     private IDfmMapping mapping(DynamicFactorModel model, boolean mf, boolean vf) {
         if (independentVarShocks) {
             return new DfmMappingI(model, mf, vf);
@@ -196,7 +196,7 @@ public class DfmEstimator implements IDfmEstimator {
             return new DfmMapping(model, mf, vf);
         }
     }
-    
+
     @Override
     public boolean estimate(final DynamicFactorModel dfm, TsInformationSet input) {
         DynamicFactorModel model = dfm;
@@ -208,6 +208,7 @@ public class DfmEstimator implements IDfmEstimator {
         FunctionMinimizer fnmin = null;
         boolean log = false;
         int emUpLeft = maxEmUp;
+        int niter = 0;
         try {
             if (maxInitialIter > 0) {
 //                setMessage(SIMPLIFIED);
@@ -216,23 +217,23 @@ public class DfmEstimator implements IDfmEstimator {
                         .functionPrecision(eps)
                         .build();
                 SimpleDfmMapping smapping = new SimpleDfmMapping(model);
-                model = smapping.validate(model);
-                
+                DynamicFactorModel smodel = smapping.validate(model);
+
                 fn = DfmFunction.builder(data, smapping)
                         .parallelProcessing(true)
                         .symmetricNumericalDerivatives(false)
                         .log(log)
                         .build();
-                DfmFunctionPoint curpt = fn.evaluate(smapping.map(model));
+                DfmFunctionPoint curpt = fn.evaluate(smapping.map(smodel));
 //                System.out.println(curpt.getLikelihood().logLikelihood());
                 fnmin.minimize(curpt);
                 pt = (DfmFunctionPoint) fnmin.getResult();
+                likelihood = pt.getLikelihood();
 //                System.out.println(pt.getLikelihood().logLikelihood());
-                double var = pt.getLikelihood().sigma2();
+                double var = likelihood.sigma2();
                 model = pt.getCore().rescaleVariances(var);
             }
             if (maxBlockIterations > 0) {
-                int biter = 0;
                 fnmin = minimizer
                         .maxIter(maxIntermediateIter)
                         .functionPrecision(eps)
@@ -249,10 +250,12 @@ public class DfmEstimator implements IDfmEstimator {
 //                    setMessage(VSTEP);
                     pt = fn.evaluate(mapping.map(model));
                     fnmin.minimize(pt);
-//                    niter += fnmin.getIterCount();
+                    niter += fnmin.getIterationsCount();
                     pt = (DfmFunctionPoint) fnmin.getResult();
+                    likelihood = pt.getLikelihood();
+
 //                    System.out.println(pt.getLikelihood().logLikelihood());
-                    double var = pt.getLikelihood().sigma2();
+                    double var = likelihood.sigma2();
                     model = pt.getCore().rescaleVariances(var);
                     model = normalize(model);
                     if (mixed) {
@@ -275,7 +278,7 @@ public class DfmEstimator implements IDfmEstimator {
                                 .build();
 //                        setMessage(MSTEP);
                         fnmin.minimize(fn.evaluate(mapping.map(model)));
-//                       niter += mininmizer.getIterCount();
+                        niter += fnmin.getIterationsCount();
                         pt = (DfmFunctionPoint) fnmin.getResult();
 //                        System.out.println(pt.getLikelihood().logLikelihood());
                         var = pt.getLikelihood().sigma2();
@@ -290,7 +293,7 @@ public class DfmEstimator implements IDfmEstimator {
                             .build();
 //                    setMessage(ALL);
                     converged = fnmin.minimize(fn.evaluate(mapping.map(model)));
-//                    niter += mininmizer.getIterCount();
+                    niter += fnmin.getIterationsCount();
                     pt = (DfmFunctionPoint) fnmin.getResult();
 //                    System.out.println(pt.getLikelihood().logLikelihood());
                     var = pt.getLikelihood().sigma2();
@@ -298,7 +301,7 @@ public class DfmEstimator implements IDfmEstimator {
                     model = normalize(model);
                     boolean stop = likelihood != null && Math.abs(likelihood.logLikelihood() - pt.getLikelihood().logLikelihood()) < eps;
                     likelihood = pt.getLikelihood();
-                    if (biter++ >= maxBlockIterations || stop) {
+                    if (converged || niter >= maxIter || stop) {
                         break;
                     }
                 }
@@ -332,16 +335,16 @@ public class DfmEstimator implements IDfmEstimator {
             }
         }
     }
-    
+
     private void finalizeProcessing(FunctionMinimizer fnmin) {
         IDfmMapping fmapping = mapping(dfm, false, false);
         DoubleSeq mp = fmapping.map(dfm);
         DoubleSeq up = fnmin.getResult().getParameters();
         DoubleSeq factors = DoublesMath.divide(mp, up);
-        
+
         DfmFunction function = (DfmFunction) fnmin.getResult().getFunction();
         boolean log = function.isLog();
-        
+
         FastMatrix h = fnmin.curvatureAtMinimum();
         if (h != null) {
             if (!log) {
@@ -369,22 +372,22 @@ public class DfmEstimator implements IDfmEstimator {
             gradient = grad;
         }
     }
-    
+
     @Override
     public Matrix getHessian() {
         return this.hessian;
     }
-    
+
     @Override
     public DoubleSeq getGradient() {
         return this.gradient;
     }
-    
+
     @Override
     public Likelihood getLikelihood() {
         return likelihood;
     }
-    
+
     @Override
     public DynamicFactorModel getEstimatedModel() {
         return dfm;

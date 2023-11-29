@@ -9,15 +9,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import jdplus.dfm.base.api.MeasurementType;
-import jdplus.dfm.base.api.NumericalProcessingSpec;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.DfmEM;
 import jdplus.dfm.base.core.DfmEstimator;
 import jdplus.dfm.base.core.DfmKernel;
 import jdplus.dfm.base.core.DfmProcessor;
 import jdplus.dfm.base.core.DfmResults;
-import jdplus.toolkit.base.api.information.GenericExplorable;
-import jdplus.toolkit.base.api.information.InformationMapping;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.dfm.base.core.DynamicFactorModel;
 import jdplus.dfm.base.core.IDfmMeasurement;
@@ -31,6 +28,8 @@ import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.data.DataBlockIterator;
+import jdplus.toolkit.base.core.math.functions.levmar.LevenbergMarquardtMinimizer;
+import jdplus.toolkit.base.core.math.functions.ssq.ProxyMinimizer;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.ssf.ISsfInitialization;
 import jdplus.toolkit.base.core.stats.likelihood.Likelihood;
@@ -272,16 +271,17 @@ public class DynamicFactorModels {
         TsPeriod fLast = dfmData.getCurrentDomain().getEndPeriod().plus(nForecasts);
         TsInformationSet dfmDataExtended = dfmData.extendTo(fLast.start().toLocalDate());
         
-        DfmEstimator estimator = DfmEstimator.of(NumericalProcessingSpec.DEFAULT_ENABLED, dfmModel.getVar().getInitialization())
-                .toBuilder()
-                .maxIterations(maxIter)
-                .maxBlockIterations(maxBlockIter)
+        DfmEstimator estimator = DfmEstimator.builder()
+                .minimizer(ProxyMinimizer.builder(
+                        LevenbergMarquardtMinimizer.builder()))
                 .maxInitialIter(simplModelIter)
+                .maxBlockIterations(maxBlockIter)
+                .maxIterations(maxIter)
                 .independentVarShocks(independantVAShocks)
                 .mixed(mixedEstimation)
                 .precision(eps)
                 .build();
-
+				
         DfmKernel dfmK;
         if (pcaInit && emInit) {
             dfmK = DfmKernel.builder()
