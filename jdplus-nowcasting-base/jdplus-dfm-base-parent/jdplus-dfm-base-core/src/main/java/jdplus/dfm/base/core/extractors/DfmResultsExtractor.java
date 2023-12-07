@@ -25,12 +25,11 @@ public class DfmResultsExtractor extends InformationMapping<DfmResults> {
         set(DfmDictionaries.SAMPLE_STDDEV, double[].class, source -> source.getSampleStDev().toArray());
         set(DfmDictionaries.INPUT, Matrix.class, source -> source.getInputData());
         set(DfmDictionaries.INPUT_TRANSFORMED, Matrix.class, source -> source.getTransformedInputData());
-        set(DfmDictionaries.INPUT_IS_STANDARDIZED, boolean.class, source -> source.isStandardizedInput());
         set(DfmDictionaries.FACTORS, Matrix.class, source -> source.getFactors());
         set(DfmDictionaries.FACTORS_STDERR, Matrix.class, source -> source.getFactorsStdErr());
         set(DfmDictionaries.RESIDUALS, Matrix.class, source -> source.getResiduals());
         set(DfmDictionaries.RESIDUALS_STANDARDIZED, Matrix.class, source -> source.getResidualsStandardized());
-        set(DfmDictionaries.LIKELIHOOD_LL, double.class, source -> source.getLogLikelihood());
+        set(DfmDictionaries.LIKELIHOOD_LL, Double.class, source -> source.getLogLikelihood());
         
         delegate(null, DynamicFactorModel.class, source -> source.getDfm());
         

@@ -65,12 +65,18 @@ public class DynamicFactorModels {
         }
         TsInformationSet tinput = new TsInformationSet(input);
         
+        FastMatrix dataT = FastMatrix.of(data);
+        for(int j = 0; j < tinput.getSeriesCount(); ++j){
+            dataT.column(j).set(tinput.series(j).getValues());
+        }
+        System.out.println(dataT);
+        
         if (builder != null) {
             builder.sampleMean(DoubleSeq.of(sampleMean))
                    .sampleStDev(DoubleSeq.of(sdDev))
                    .inputData(data)
                    .standardizedInput(standardized)
-                   .transformedInputData(tinput.generateMatrix(TsDomain.DEFAULT_EMPTY));
+                   .transformedInputData(dataT);
         }        
         return tinput;
     }
@@ -264,7 +270,7 @@ public class DynamicFactorModels {
 
     public DfmResults estimate_ML(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts,
             boolean pcaInit, boolean emInit, int emInitmaxIter, double emInitEps, int maxIter, int maxBlockIter, int simplModelIter,
-            boolean independantVAShocks, boolean mixedEstimation, double eps) {
+            boolean independentVARShocks, boolean mixedEstimation, double eps) {
             
         DfmResults.Builder builder = DfmResults.builder();
         TsInformationSet dfmData = prepareInput(data, freq, start, standardized, builder);
@@ -277,34 +283,23 @@ public class DynamicFactorModels {
                 .maxInitialIter(simplModelIter)
                 .maxBlockIterations(maxBlockIter)
                 .maxIterations(maxIter)
-                .independentVarShocks(independantVAShocks)
+                .independentVarShocks(independentVARShocks)
                 .mixed(mixedEstimation)
                 .precision(eps)
                 .build();
-				
+	
+        DynamicFactorModel dfm0 = dfmModel;
+        if (pcaInit) {
+            PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
+            dfm0 = initializer.initialize(dfmModel, dfmData);
+        } 
         DfmKernel dfmK;
-        if (pcaInit && emInit) {
-            dfmK = DfmKernel.builder()
-                    .initializer(DfmEM.builder()
-                            .initializer(new PrincipalComponentsInitializer())
-                            .maxIter(emInitmaxIter)
-                            .precision(emInitEps)
-                            .build())
-                    .estimator(estimator)
-                    .processor(DfmProcessor.builder().build())
-                    .build();
-        } else if (!pcaInit && emInit) {
+        if (emInit) {
             dfmK = DfmKernel.builder()
                     .initializer(DfmEM.builder()
                             .maxIter(emInitmaxIter)
                             .precision(emInitEps)
                             .build())
-                    .estimator(estimator)
-                    .processor(DfmProcessor.builder().build())
-                    .build();
-        } else if (pcaInit && !emInit) {
-            dfmK = DfmKernel.builder()
-                    .initializer(new PrincipalComponentsInitializer())
                     .estimator(estimator)
                     .processor(DfmProcessor.builder().build())
                     .build();
@@ -314,7 +309,7 @@ public class DynamicFactorModels {
                     .processor(DfmProcessor.builder().build())
                     .build();
         }  
-        dfmK.process(dfmModel, dfmDataExtended);
+        dfmK.process(dfm0, dfmDataExtended);
         
         DynamicFactorModel dfm = dfmK.getEstimator().getEstimatedModel();
         DfmProcessor processor = dfmK.getProcessor();
@@ -344,4 +339,4 @@ public class DynamicFactorModels {
                 .build();
     }
 }
-    
+

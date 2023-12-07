@@ -39,17 +39,17 @@ public class DfmResults implements GenericExplorable {
     DoubleSeq gradient;
     Matrix hessian;
     Likelihood likelihood;
+    boolean standardizedInput;
     
     DoubleSeq sampleMean;
     DoubleSeq sampleStDev;
     Matrix inputData;
-    boolean standardizedInput;
     Matrix transformedInputData;
     Matrix factors;
     Matrix factorsStdErr;
     Matrix residuals;
     Matrix residualsStandardized;
-    double logLikelihood;
+    Double logLikelihood;
     
     public Matrix forecastsT(int nf) {
               
