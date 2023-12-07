@@ -51,7 +51,7 @@
         <lombok.version>1.18.30</lombok.version>
         <java-service.version>1.7.0</java-service.version>
         <java-design.version>1.5.0</java-design.version>
-        <checker-qual.version>3.40.0</checker-qual.version>
+        <checker-qual.version>3.41.0</checker-qual.version>
 
         <!-- test frameworks -->
         <junit.version>5.10.1</junit.version>
@@ -59,7 +59,7 @@
 
         <!-- dependencies -->
         <jd2.version>2.2.4</jd2.version>
-        <jdplus-main.version>3.2.0</jdplus-main.version>
+        <jdplus-main.version>3.2.1</jdplus-main.version>
         <protobuf.version>3.21.12</protobuf.version>
     </properties>
 
@@ -212,7 +212,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>3.6.2</version>
+                    <version>3.6.3</version>
                 </plugin>
                 <plugin>
                     <groupId>org.simplify4u.plugins</groupId>
