@@ -79,8 +79,17 @@ public class DynamicFactorModelsTest {
         factorLoaded.row(2).copyFrom(l1, 0);
         factorLoaded.row(3).copyFrom(l2, 0);
         factorLoaded.row(4).copyFrom(l1, 0);
-
+        double[] mvar = {1,1,2,2,0.5}; 
+        
         DynamicFactorModel dfmInit = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional", null);
+        DynamicFactorModel dfmInit2 = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional", mvar);
+        
+        DfmResults dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data, 12, start, false, 12); // tested and same results as GUI
+        DfmResults dfm1bis = DynamicFactorModels.estimate_PCA(dfmInit2, data, 12, start, false, 12); // tested and same results as GUI
+        System.out.println(dfm1.getDfm().getMeasurements().get(1).getVariance());
+        System.out.println(dfm1bis.getDfm().getMeasurements().get(1).getVariance());
+        
+        DfmResults dfm2 = DynamicFactorModels.estimate_EM(dfmInit, data, 12, start, false, 12, true, 100, 0.000000001); // tested and same results as GUI        
 
         DfmKernel kernel = DfmKernel.builder()
                 .initializer(DfmEM.builder()
@@ -93,17 +102,19 @@ public class DynamicFactorModelsTest {
                 .build();
 //        kernel.process(dfmInit, DynamicFactorModels.prepareInput(data, 12, start, false));
 //        long t0 = System.currentTimeMillis();
-////        DfmResults dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data, 12, start, false); 
-//        // --> dfm0 tested and correct (same results as GUI)!
-////        DfmResults dfm2 = DynamicFactorModels.estimate_EM(dfmInit, data, 12, start, false, true, 100, 0.000000001); 
+//        DfmResults dfm2 = DynamicFactorModels.estimate_EM(dfmInit, data, 12, start, false, 12, true, 100, 0.000000001); 
 //        long t1 = System.currentTimeMillis();
 //        System.out.println(t1 - t0);
-        // --> Significant differences with GUI -> still to investigate!
-        DfmResults dfm3 = DynamicFactorModels.estimate_ML(dfmInit, data, 12, start, false, true, true,
+
+        DfmResults dfm3 = DynamicFactorModels.estimate_ML(dfmInit, data, 12, start, false, 12, true, true,
                 10, 0.0001, 500, 5, 10, false, true, 1e-9);
-        //        DfmResults dfm -> Does not work: on third iteration of ML, problem in MultivariateUpdateInformation SolveLx (even though it works in GUI!)
         System.out.println(dfm3.getDfm().getVar().getCoefficients());
         System.out.println(dfm3.getDfm().getVar().getInnovationsVariance());
         System.out.println(dfm3.getLikelihood().logLikelihood());
+        Matrix test = dfm3.forecasts(12);
+        double test2 = dfm3.getLogLikelihood();
+        System.out.println(test);
+        System.out.println(test2);
+        // Small differences with GUI?
     }
 }

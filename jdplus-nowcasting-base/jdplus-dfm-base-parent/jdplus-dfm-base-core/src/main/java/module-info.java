@@ -14,6 +14,7 @@
  * See the Licence for the specific language governing permissions and 
  * limitations under the Licence.
  */
+import jdplus.toolkit.base.api.information.InformationExtractor;
 
 module jdplus.dfm.base.core {
     
@@ -28,4 +29,8 @@ module jdplus.dfm.base.core {
     exports jdplus.dfm.base.core;
     exports jdplus.dfm.base.core.var;
     exports jdplus.dfm.base.core.varma;
+    
+    provides InformationExtractor with
+        jdplus.dfm.base.core.extractors.DynamicFactorModelExtractor,
+        jdplus.dfm.base.core.extractors.DfmResultsExtractor;
 }
