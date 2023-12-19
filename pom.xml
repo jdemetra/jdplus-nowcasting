@@ -67,6 +67,7 @@
         <module>jdplus-nowcasting-base</module>
         <module>jdplus-nowcasting-desktop</module>
         <module>jdplus-nowcasting-cli</module>
+        <module>jdplus-nowcasting-bom</module>
     </modules>
 
     <dependencies>
