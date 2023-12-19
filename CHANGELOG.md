@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.2] - 2023-12-19
+
+This is the **initial release** of jdplus-nowcasting v3 in order to release a first version of the package rjd3nowcasting.
+
 ## [1.0.1] - 2023-12-19
 
 This is the **initial release** of jdplus-nowcasting v3 in order to release a first version of the package rjd3nowcasting.
@@ -15,7 +19,9 @@ This is the **initial release** of jdplus-nowcasting v3 in order to release a fi
 
 This is the **initial release** of jdplus-nowcasting v3 in order to release a first version of the package rjd3nowcasting.
 
-[Unreleased]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.2...HEAD
+
+[1.0.2]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.1...v1.0.2
 
 [1.0.1]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.0...v1.0.1
 
