@@ -13,6 +13,7 @@ import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.DfmEM;
 import jdplus.dfm.base.core.DfmEstimator;
 import jdplus.dfm.base.core.DfmKernel;
+import jdplus.dfm.base.core.DfmNews;
 import jdplus.dfm.base.core.DfmProcessor;
 import jdplus.dfm.base.core.DfmResults;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
@@ -178,7 +179,19 @@ public class DynamicFactorModels {
         }
         return dfm;
     }
-
+    
+    // Estimation of coefficients only
+    public DynamicFactorModel estimate_PCA(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized){
+                
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, null);
+        
+        PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
+        DynamicFactorModel dfm = initializer.initialize(dfmModel, dfmData);
+        
+        return dfm; 
+    }
+    
+    // Estimation of coefficients + processing 
     public DfmResults estimate_PCA(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts) {
         
         DfmResults.Builder builder = DfmResults.builder();
@@ -215,7 +228,11 @@ public class DynamicFactorModels {
                 .build();            
         // In case of PCA, nothing related to the likelihood
     }
+    
+    
+    
 
+    
     public DfmResults estimate_EM(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts,
             boolean pcaInit, int maxIter, double eps) {
         
@@ -338,5 +355,53 @@ public class DynamicFactorModels {
                 .logLikelihood(dfmK.getEstimator().getLikelihood().logLikelihood())
                 .build();
     }
+    
+        public DfmResults process(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts){
+        
+        DfmResults.Builder builder = DfmResults.builder();
+        
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, builder);
+        
+        DfmProcessor processor = DfmProcessor.builder().build();
+        TsPeriod fLast = dfmData.getCurrentDomain().getEndPeriod().plus(nForecasts);
+        TsInformationSet dfmDataExtended = dfmData.extendTo(fLast.start().toLocalDate());
+        processor.process(dfmModel, dfmDataExtended);
+        
+        int nPeriod = dfmData.getCurrentDomain().getLength();
+        int nPeriodExt = dfmDataExtended.getCurrentDomain().getLength();
+        int nf = dfmModel.getNfactors();
+        int neq =dfmModel.getMeasurementsCount();
+        int mlags = dfmModel.measurementsLags();
+        Matrix factors = getFactors(processor, nPeriodExt, nf, mlags);
+        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, mlags);
+        Matrix residuals = getResiduals(processor, dfmData, nPeriod, neq);
+        Matrix residualsStandardized = getStandardizedResiduals(processor, dfmData, nPeriod, neq);
+        
+        return builder
+                .dfmData(dfmData)
+                .dfm(dfmModel)
+                .smoothedStates(processor.getSmoothingResults())
+                .factors(factors)
+                .factorsStdErr(factorsSdErr)
+                .residuals(residuals)
+                .residualsStandardized(residualsStandardized)
+                .build();    
+    }
+        
+    public boolean computeNews(DynamicFactorModel dfm, TsInformationSet oldData, TsInformationSet newData){
+        
+        DfmNews test = new DfmNews(dfm);
+        test.process(oldData, newData);
+        
+        TsInformationSet dataOld = test.getOldInformationSet();
+        TsInformationSet dataNew = test.getNewInformationSet();
+        
+        return true;
+    }
+        
+    
 }
+
+
+
 
