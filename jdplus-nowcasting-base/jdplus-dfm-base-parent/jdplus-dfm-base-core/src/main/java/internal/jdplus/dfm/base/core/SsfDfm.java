@@ -55,6 +55,13 @@ public class SsfDfm {
         return C;
     }
 
+    /**
+     * Creates the state space for an number of lags that can exceed the necessary lags
+     * (defined by the types of the measurements and by the lags of the VAR
+     * @param dfm
+     * @param extendedLags
+     * @return 
+     */
     public MultivariateSsf of(DynamicFactorModel dfm, int extendedLags) {
         int nb = blockLength(Math.max(extendedLags, dfm.getNlags()), dfm.getMeasurements());
         return withBlockLength(dfm, nb);

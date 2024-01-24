@@ -21,6 +21,7 @@ import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.api.timeseries.TsInformationUpdates;
 import jdplus.dfm.base.api.timeseries.TsInformationUpdates.Update;
 import jdplus.dfm.base.api.timeseries.TsUtility;
+import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.core.data.DataBlock;
@@ -137,14 +138,13 @@ public class DfmNews {
     }
 
     /**
-     * Computes the news between two consecutive information set
+     * Computes the news between two consecutive information sets
      *
      * @param oldSet The old information set
      * @param newSet The new information set
      * @return True if the news have been successfully computed
      */
     public boolean process(TsInformationSet oldSet, TsInformationSet newSet) {
-        // We first remove missing values at the extremities which could disturb the processing
         this.oldSet = oldSet;
         this.newSet = newSet;
         // recall : revisions = revisedSet - oldSet, news = newSet - revisedSet
@@ -159,24 +159,22 @@ public class DfmNews {
 
     private boolean calcNews() {
         // Calculates News
-        computeNewsDomain();
-
         FastMatrix M = FastMatrix.of(revisedSet.generateMatrix(fullDomain));
         FastMatrix M_old = FastMatrix.of(oldSet.generateMatrix(fullDomain));
 
-        oldStates = smoothData(M_old, oldDomain.getEndPeriod());
+        oldStates = smoothData(M_old, oldDomain.getStartPeriod());
         if (oldStates == null) {
             return false;
         }
 
-        revisedStates = smoothData(M, oldDomain.getEndPeriod());
+        revisedStates = smoothData(M, oldDomain.getStartPeriod());
         if (revisedStates == null) {
             return false;
         }
 
         updateNews();
 
-        newStates = smoothData(M, newDomain.getEndPeriod());
+        newStates = smoothData(M, newDomain.getStartPeriod());
         if (newStates == null) {
             return false;
         }
@@ -213,9 +211,10 @@ public class DfmNews {
     }
 
     private void computeDomains() {
-        TsDomain d0 = revisedSet.getCurrentDomain();
+        TsDomain d0 = revisedSet.getCurrentDomain(); // same as oldSet
         TsDomain d1 = newSet.getCurrentDomain();
         fullDomain = d0.union(d1);
+        // Intersection of the domains, after excluding missings at the extremities
         oldDomain = revisedSet.actualData().getCommonDomain();
         newDomain = newSet.actualData().getCommonDomain();
         computeNewsDomain();
@@ -230,11 +229,20 @@ public class DfmNews {
      */
     private void computeNewsDomain() {
         int freq = fullDomain.getAnnualFrequency();
-        TsDomain ndomain = TsInformationUpdates.updatesDomain(freq, updates.news());
-        TsPeriod start = oldDomain.getEndPeriod();
-        newsDomain = TsDomain.of(start, start.until(ndomain.getEndPeriod()));
-        int nb = model.minSsfBlockLength();
-        nbnews = nb + newsDomain.getStartPeriod().until(fullDomain.getLastPeriod());
+        if (updates.news().isEmpty()) {
+            newsDomain = null;
+            nbnews = 0;
+        } else {
+            newsDomain = TsInformationUpdates.updatesDomain(freq, updates.news());
+//            TsDomain ndomain = TsInformationUpdates.updatesDomain(freq, updates.news());
+//            TsPeriod start = oldDomain.getEndPeriod();
+//            newsDomain = TsDomain.of(start, start.until(ndomain.getEndPeriod()));
+            int nb = model.defaultSsfBlockLength();
+            // number of items we have to include in the state space for each factor 
+            // if t0 = newsDomain.start, t1 = fullDomain.last and m = measurementLength
+            // we need to have items in [t0-m+1, t1[ (and more that the default block length) 
+            nbnews = Math.max(nb, model.measurementsLength() + newsDomain.getStartPeriod().until(fullDomain.getEndPeriod()));
+        }
     }
 
     /**
@@ -242,15 +250,23 @@ public class DfmNews {
      */
     private void computeRevisionsDomain() {
         int freq = fullDomain.getAnnualFrequency();
-        TsDomain rdomain = TsInformationUpdates.updatesDomain(freq, updates.revisions());
-        TsPeriod start = rdomain.getStartPeriod();
-        int n = start.until(oldDomain.getEndPeriod());
-        if (n > ext * freq) {
-            rdomain = rdomain.drop(n - ext * freq, 0);
+        if (updates.revisions().isEmpty()) {
+            revisionsDomain = null;
+            nbrev = 0;
+        } else {
+            TsDomain rdomain = TsInformationUpdates.updatesDomain(freq, updates.revisions());
+            TsPeriod start = rdomain.getStartPeriod();
+            int n = start.until(oldDomain.getEndPeriod());
+            if (n > ext * freq) {
+                rdomain = rdomain.drop(n - ext * freq, 0);
+            }
+            revisionsDomain = rdomain;
+            int nb = model.defaultSsfBlockLength();
+             // number of items we have to include in the state space for each factor 
+            // if t0 = newsDomain.start, t1 = fullDomain.last and m = measurementLength
+            // we need to have items in [t0-m+1, t1[ (and more that the default block length) 
+            nbrev = Math.max(nb, model.measurementsLength() + revisionsDomain.getStartPeriod().until(fullDomain.getEndPeriod()));
         }
-        revisionsDomain = rdomain;
-        int nb = model.minSsfBlockLength();
-        nbrev = nb + revisionsDomain.getStartPeriod().until(fullDomain.getLastPeriod());
     }
 
     /**
@@ -258,18 +274,19 @@ public class DfmNews {
      * @return
      */
     private StateStorage smoothData(FastMatrix M, TsPeriod start) {
-
+        // We don't compute the variances
         MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(ssf)
                 .calcVariance(false)
+                .calcSmoothationsVariance(false)
                 .build();
         int n = fullDomain.getStartPeriod().until(start);
-        SsfMatrix data = new SsfMatrix(M.top(n).get());
+        SsfMatrix data = new SsfMatrix(M);
         StateStorage ss = StateStorage.light(StateInfo.Smoothed);
         MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
         MultivariateFilteringInformation fresults = new MultivariateFilteringInformation();
         if (filter.process(ssf, data, fresults)) {
             ss.prepare(ssf.getStateDim(), n, data.getObsCount());
-            smoother.process(n, fullDomain.getLength(), fresults, ss);
+            smoother.process(n, data.getObsCount(), fresults, ss);
             return ss;
         } else {
             return null;
@@ -280,15 +297,16 @@ public class DfmNews {
         IMultivariateSsf xssf = model.ssfRepresentationWithBlockLength(nb);
         MultivariateOrdinarySmoother smoother = MultivariateOrdinarySmoother.builder(xssf)
                 .calcVariance(true)
+                .calcSmoothationsVariance(true)
                 .build();
         int n = fullDomain.getStartPeriod().until(start);
-        SsfMatrix data = new SsfMatrix(M.top(n).get());
-        StateStorage ss = StateStorage.light(StateInfo.Smoothed);
+        SsfMatrix data = new SsfMatrix(M);
+        StateStorage ss = StateStorage.full(StateInfo.Smoothed);
         MultivariateOrdinaryFilter filter = new MultivariateOrdinaryFilter();
         MultivariateFilteringInformation fresults = new MultivariateFilteringInformation();
-        if (filter.process(ssf, data, fresults)) {
-            ss.prepare(ssf.getStateDim(), n, data.getObsCount());
-            smoother.process(n, fullDomain.getLength(), fresults, ss);
+        if (filter.process(xssf, data, fresults)) {
+            ss.prepare(xssf.getStateDim(), n, data.getObsCount());
+            smoother.process(n, data.getObsCount(), fresults, ss);
             return ss;
         } else {
             return null;
@@ -302,7 +320,7 @@ public class DfmNews {
         int freq = fullDomain.getAnnualFrequency();
         TsPeriod start = fullDomain.getStartPeriod();
         for (Update update : updates.news()) {
-            int pos = start.until(TsUtility.endPeriod(update.getPeriod(), freq));
+            int pos = start.until(TsUtility.lastPeriod(update.getPeriod(), freq));
             update.setForecast(ssf.loading(update.getSeries()).ZX(pos, revisedStates.a(pos)));
         }
     }
@@ -325,16 +343,15 @@ public class DfmNews {
 
     private void computeNewsCovariance(FastMatrix M) {
 
-        StateStorage ss = smoothDataEx(nbnews, M, newsDomain.getLastPeriod());
-        covNews = ss.P(fullDomain.length() - 1);
+        StateStorage ss = smoothDataEx(nbnews, M, newsDomain.getStartPeriod());
+        covNews = ss.P(fullDomain.length() - 1).deepClone();
 
         int freq = fullDomain.getAnnualFrequency();
         List<Update> lupdates = this.updates.news();
         int nupdates = lupdates.size();
-        int c = model.measurementsLags() + 1;
+        int c = model.measurementsLength();
         int nf = model.getNfactors();
         int d = c * nf;
-        int xc = nbnews;
         int n = fullDomain.length() - 1;
         lcovNews = FastMatrix.square(nupdates);
         FastMatrix V = FastMatrix.square(d);
@@ -351,8 +368,8 @@ public class DfmNews {
                 V.set(0);
                 for (int r = 0; r < nf; ++r) {
                     for (int s = 0; s < nf; ++s) {
-                        V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
-                                s * xc + jstart, c));
+                        V.extract(r * c, c, s * c, c).copy(covNews.extract(r * nbnews + istart, c,
+                                s * nbnews + jstart, c));
                     }
                 }
 
@@ -367,19 +384,19 @@ public class DfmNews {
         }
         SymmetricMatrix.fromLower(lcovNews);
         SymmetricMatrix.lcholesky(lcovNews, State.ZERO);
+        LowerTriangularMatrix.toLower(lcovNews);
     }
 
     private void computeRevisionsCovariance(FastMatrix M) {
-        StateStorage ss = smoothDataEx(nbrev, M, revisionsDomain.getLastPeriod());
-        covRevisions = ss.P(fullDomain.length() - 1);
+        StateStorage ss = smoothDataEx(nbrev, M, revisionsDomain.getStartPeriod());
+        covRevisions = ss.P(fullDomain.length() - 1).deepClone();
 
         int freq = fullDomain.getAnnualFrequency();
         List<Update> lupdates = updates.revisions();
         int nupdates = lupdates.size();
-        int c = model.measurementsLags() + 1;
+        int c = model.measurementsLength();
         int nf = model.getNfactors();
         int d = c * nf;
-        int xc = nbrev;
         int n = fullDomain.length() - 1;
         lcovRevisions = FastMatrix.square(nupdates);
         FastMatrix V = FastMatrix.square(d);
@@ -396,8 +413,8 @@ public class DfmNews {
                 V.set(0);
                 for (int r = 0; r < nf; ++r) {
                     for (int s = 0; s < nf; ++s) {
-                        V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
-                                s * xc + jstart, c));
+                        V.extract(r * c, c, s * c, c).copy(covRevisions.extract(r * nbrev + istart, c,
+                                s * nbrev + jstart, c));
                     }
                 }
 
@@ -405,13 +422,14 @@ public class DfmNews {
                 tmp.set(vcols, col -> ssf.loading(iupdate.getSeries()).ZX(n - istart, col));
                 double q = ssf.loading(jupdate.getSeries()).ZX(n - jstart, tmp);
                 if (i == j) {
-                    q += model.getMeasurements().get(n - iupdate.getSeries()).getVariance();
+                    q += model.getMeasurements().get(iupdate.getSeries()).getVariance();
                 }
                 lcovRevisions.set(i, j, q);
             }
         }
         SymmetricMatrix.fromLower(lcovRevisions);
         SymmetricMatrix.lcholesky(lcovRevisions, State.ZERO);
+        LowerTriangularMatrix.toLower(lcovRevisions);
     }
 
     /**
@@ -454,29 +472,30 @@ public class DfmNews {
         return a;
     }
 
-    public DataBlock weights(int series, TsPeriod p) {
+    public DoubleSeq weights(int series, TsPeriod p) {
         List<Update> lupdates = this.updates.news();
+        if (lupdates.isEmpty())
+            return DoubleSeq.empty();
         int nupdates = lupdates.size();
         DataBlock a = DataBlock.make(nupdates);
         int nf = model.getNfactors();
-        int c = model.measurementsLags() + 1;
+        int c = model.measurementsLength();
         int d = c * nf;
-        int xc = nbnews;
-        int n = fullDomain.length() - 1;
+        int n = fullDomain.length();
         FastMatrix V = FastMatrix.square(d);
         DataBlockIterator vcols = V.columnsIterator();
         DataBlock tmp = DataBlock.make(d);
-        TsPeriod end = fullDomain.getLastPeriod();
+        TsPeriod end = fullDomain.getEndPeriod();
         int freq = end.annualFrequency();
-        int istart = TsUtility.lastPeriod(p, freq).until(end);
+        int istart = TsUtility.endPeriod(p, freq).until(end);
         for (int j = 0; j < nupdates; ++j) {
             Update jupdate = lupdates.get(j);
             int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
             V.set(0);
             for (int r = 0; r < nf; ++r) {
                 for (int s = 0; s < nf; ++s) {
-                    V.extract(r * c, c, s * c, c).copy(covNews.extract(r * xc + istart, c,
-                            s * xc + jstart, c));
+                    V.extract(r * c, c, s * c, c).copy(covNews.extract(r * nbnews + istart, c,
+                            s * nbnews + jstart, c));
                 }
             }
             vcols.begin();
@@ -491,35 +510,36 @@ public class DfmNews {
         return a;
     }
 
-    public DataBlock weightsRevisions(int series, TsPeriod p) {
+    public DoubleSeq weightsRevisions(int series, TsPeriod p) {
         List<Update> lupdates = this.updates.revisions();
+        if (lupdates.isEmpty())
+            return DoubleSeq.empty();
         int nupdates = lupdates.size();
         DataBlock a = DataBlock.make(nupdates);
-        int c = model.measurementsLags() + 1;
+        int c = model.measurementsLength();
         int nf = model.getNfactors();
         int d = c * nf;
-        int xc = nbrev;
         int n = fullDomain.length() - 1;
         FastMatrix V = FastMatrix.square(d);
         DataBlockIterator vcols = V.columnsIterator();
         DataBlock tmp = DataBlock.make(d);
         int istart = p.until(fullDomain.getLastPeriod());
         int freq = fullDomain.getAnnualFrequency();
-        TsPeriod end = fullDomain.getLastPeriod();
+        TsPeriod end = fullDomain.getEndPeriod();
         for (int j = 0; j < nupdates; ++j) {
             Update jupdate = lupdates.get(j);
             int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
             V.set(0);
             for (int r = 0; r < nf; ++r) {
                 for (int s = 0; s < nf; ++s) {
-                    V.extract(r * c, c, s * c, c).copy(covRevisions.extract(r * xc + istart, c,
-                            s * xc + jstart, c));
+                    V.extract(r * c, c, s * c, c).copy(covRevisions.extract(r * nbrev + istart, c,
+                            s * nbrev + jstart, c));
                 }
             }
             tmp.set(0);
             vcols.begin();
-            tmp.set(vcols, col -> ssf.loading(series).ZX(n-istart, col));
-            double q = ssf.loading(jupdate.getSeries()).ZX(n-jstart, tmp);
+            tmp.set(vcols, col -> ssf.loading(series).ZX(n - istart, col));
+            double q = ssf.loading(jupdate.getSeries()).ZX(n - jstart, tmp);
             a.set(j, q);
         }
         // w = A * (LL')^-1 <-> w(LL')=A
