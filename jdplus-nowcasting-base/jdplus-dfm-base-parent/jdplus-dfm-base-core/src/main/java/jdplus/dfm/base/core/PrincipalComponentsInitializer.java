@@ -248,7 +248,7 @@ public class PrincipalComponentsInitializer implements IDfmInitializer {
 
     private List<MeasurementDescriptor> computeLoadings(DynamicFactorModel model) {
         // creates the matrix of factors
-        int nf = model.getNfactors(), nl=model.measurementsLags(), blen=nl+1;
+        int nf = model.getNfactors(), blen=model.defaultSsfBlockLength(), nl=blen-1;
         FastMatrix M = FastMatrix.make(data.getRowsCount() - nl, nf * blen);
         for (int i = 0, c = 0; i < nf; ++i) {
             DataBlock cur = pc[i].getFactor(0);
