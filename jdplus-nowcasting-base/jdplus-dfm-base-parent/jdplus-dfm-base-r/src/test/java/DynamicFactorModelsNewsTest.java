@@ -1,4 +1,5 @@
 
+import jdplus.dfm.base.core.DfmEstimates;
 import jdplus.dfm.base.core.DfmResults;
 import jdplus.dfm.base.core.DynamicFactorModel;
 import jdplus.dfm.base.r.DynamicFactorModels;
@@ -140,19 +141,37 @@ public class DynamicFactorModelsNewsTest {
         factorLoaded.row(3).copyFrom(l2, 0);
         factorLoaded.row(4).copyFrom(l1, 0);
         
+
         DynamicFactorModel dfmInit = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional", null);
         
-        DynamicFactorModel dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data1, 12, start, false);
-        // ESTIMATION AND PROCESSING YET TO SPLIT FOR estimate_EM and estimate_ML!
+        DfmEstimates dfmEst = DynamicFactorModels.estimate_PCA(dfmInit, data1, 12, start, false);
+        
+        DynamicFactorModel dfm1 = dfmEst.getDfm();
         
         DfmResults rslt1 = DynamicFactorModels.process(dfm1, data1, 12, start, false, 12);
         DfmResults rslt2 = DynamicFactorModels.process(dfm1, data2bis, 12, start, false, 12);
         
-        
-        
         System.out.println(rslt1.forecasts(3));
         System.out.println(rslt2.forecasts(3));
         
-        Boolean test = DynamicFactorModels.computeNews(dfm1, rslt1.getDfmData(), rslt2.getDfmData());
+        FastMatrix mCoeff = FastMatrix.make(factorType.length, nf);
+        double[] mVar = new double[factorType.length];
+        for (int i=0; i<factorType.length; i++){
+            mCoeff.row(i).copyFrom(dfm1.getMeasurements().get(i).getCoefficient().toArray(), 0);
+            mVar[i] = dfm1.getMeasurements().get(i).getVariance();
+        }
+        
+        DynamicFactorModel dfmInit2 = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional",    
+                dfm1.getVar().getCoefficients(), 
+                dfm1.getVar().getInnovationsVariance(), 
+                mCoeff,
+                mVar);
+        
+        DfmEstimates dfmEst2 = DynamicFactorModels.estimate_EM(dfmInit, data1, 12, start, false, true, 500, 1e-9);
+        
+        System.out.println(dfmEst2.getLl());
+        System.out.println(dfmEst2.getHessian());
+        
+//        Boolean test = DynamicFactorModels.computeNews(dfm1, rslt1.getDfmData(), rslt2.getDfmData());
     }
 }

@@ -22,6 +22,7 @@ import java.util.List;
 import jdplus.dfm.base.api.DfmException;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.api.information.GenericExplorable;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.LowerTriangularMatrix;
 import jdplus.toolkit.base.core.math.matrices.MatrixException;
@@ -34,7 +35,7 @@ import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
  */
 @lombok.Value
 @lombok.Builder(builderClassName="Builder")
-public class DynamicFactorModel {
+public class DynamicFactorModel implements GenericExplorable {
 
     /**
      * Description of the hidden VAR model

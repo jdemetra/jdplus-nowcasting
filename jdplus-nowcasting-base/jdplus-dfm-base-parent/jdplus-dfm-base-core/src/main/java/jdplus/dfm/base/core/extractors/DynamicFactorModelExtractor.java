@@ -20,9 +20,9 @@ import nbbrd.service.ServiceProvider;
 public class DynamicFactorModelExtractor extends InformationMapping<DynamicFactorModel> {
    
     public DynamicFactorModelExtractor() {
-        set(DfmDictionaries.PARAMETERS_VAR, Matrix.class, source -> source.getVar().getCoefficients());
-        set(DfmDictionaries.PARAMETERS_VAR_VARIANCE, Matrix.class, source -> source.getVar().getInnovationsVariance());
-        set(DfmDictionaries.PARAMETERS_FACTORS, Matrix.class, source -> {
+        set(DfmDictionaries.VAR_COEFFICIENTS, Matrix.class, source -> source.getVar().getCoefficients());
+        set(DfmDictionaries.VAR_ERRORS_VARIANCE, Matrix.class, source -> source.getVar().getInnovationsVariance());
+        set(DfmDictionaries.MEASUREMENT_COEFFICIENTS, Matrix.class, source -> {
             int nf = source.getNfactors();
             int nm = source.getMeasurementsCount();
             FastMatrix paramF = FastMatrix.make(nm, nf);
@@ -32,13 +32,24 @@ public class DynamicFactorModelExtractor extends InformationMapping<DynamicFacto
             return paramF;
         }
         );
-        set(DfmDictionaries.PARAMETERS_FACTORS_VARIANCE, double[].class, source -> {
+        set(DfmDictionaries.MEASUREMENT_ERRORS_VARIANCE, double[].class, source -> {
             int nm = source.getMeasurementsCount();
             double[] varF = new double[nm];
             for (int i = 0; i < nm; ++i) {
                 varF[i] = source.getMeasurements().get(i).getVariance();
             }
             return varF;
+        }
+        );
+        
+        set(DfmDictionaries.INITIALIZATION_TYPE, String.class, source -> source.getVar().getInitialization().toString());
+        set(DfmDictionaries.FACTORS_TYPE, int[].class, source -> {
+            int nm = source.getMeasurementsCount();
+            int[] len = new int[nm];
+            for (int i = 0; i < nm; ++i) {
+                len[i] = source.getMeasurements().get(i).getType().getLength();
+            }
+            return len; 
         }
         );
     }

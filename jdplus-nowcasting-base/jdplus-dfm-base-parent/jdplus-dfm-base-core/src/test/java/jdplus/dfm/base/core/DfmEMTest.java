@@ -101,6 +101,7 @@ public class DfmEMTest {
             DataBlock prow = Q.row(i);
             prow.copy(trow);
         }
+        
         VarDescriptor var = new VarDescriptor(C, Q, ISsfInitialization.Type.Zero);
 
         // measurement equation
