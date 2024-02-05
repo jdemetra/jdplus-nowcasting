@@ -252,7 +252,7 @@ public class DfmEM implements IDfmInitializer {
     public DynamicFactorModel initialize(DynamicFactorModel rdfm, TsInformationSet data) {
         this.dfm = rdfm;
         this.data = data;
-        this.nxlags = rdfm.minSsfBlockLength();
+        this.nxlags = rdfm.defaultSsfBlockLength();
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
                 .build();

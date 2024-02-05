@@ -71,8 +71,6 @@ public class DynamicFactorModels {
         for(int j = 0; j < tinput.getSeriesCount(); ++j){
             dataT.column(j).set(tinput.series(j).getValues());
         }
-        System.out.println(dataT);
-        
         if (builder != null) {
             builder.sampleMean(DoubleSeq.of(sampleMean))
                    .sampleStDev(DoubleSeq.of(sdDev))
@@ -83,18 +81,18 @@ public class DynamicFactorModels {
         return tinput;
     }
     
-    public Matrix getFactors(DfmProcessor processor, int nPeriodExtended, int nFactors, int mLags){
+    public Matrix getFactors(DfmProcessor processor, int nPeriodExtended, int nFactors, int blockLength){
         FastMatrix factors = FastMatrix.make(nPeriodExtended, nFactors);       
         for (int j = 0; j < nFactors; ++j) {
-            factors.column(j).add(processor.getSmoothingResults().getComponent((mLags+1)*j));  
+            factors.column(j).add(processor.getSmoothingResults().getComponent(blockLength*j));  
         } 
         return factors;
     }
     
-    public Matrix getFactorsSdErr(DfmProcessor processor, int nPeriodExtended, int nFactors, int mLags){
+    public Matrix getFactorsSdErr(DfmProcessor processor, int nPeriodExtended, int nFactors, int blockLength){
         FastMatrix factorsSdErr = FastMatrix.make(nPeriodExtended, nFactors);   
         for (int j = 0; j < nFactors; ++j) {
-            factorsSdErr.column(j).add(processor.getSmoothingResults().getComponentVariance((mLags+1)*j).sqrt());
+            factorsSdErr.column(j).add(processor.getSmoothingResults().getComponentVariance(blockLength*j).sqrt());
         } 
         return factorsSdErr;
     }
@@ -413,9 +411,9 @@ public class DynamicFactorModels {
         int nPeriodExt = dfmDataExtended.getCurrentDomain().getLength();
         int nf = dfm.getNfactors();
         int neq =dfm.getMeasurementsCount();
-        int mlags = dfm.measurementsLags();
-        Matrix factors = getFactors(processor, nPeriodExt, nf, mlags);
-        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, mlags);
+        int blockLength = dfm.defaultSsfBlockLength();
+        Matrix factors = getFactors(processor, nPeriodExt, nf, blockLength);
+        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, blockLength);
         Matrix residuals = getResiduals(processor, dfmData, nPeriod, neq);
         Matrix residualsStandardized = getStandardizedResiduals(processor, dfmData, nPeriod, neq);
         // Not the same as GUI for the residuals... yet to investigate
@@ -466,9 +464,9 @@ public class DynamicFactorModels {
         int nPeriodExt = dfmDataExtended.getCurrentDomain().getLength();
         int nf = dfm.getNfactors();
         int neq =dfm.getMeasurementsCount();
-        int mlags = dfm.measurementsLags();
-        Matrix factors = getFactors(processor, nPeriodExt, nf, mlags);
-        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, mlags);
+        int blockLength = dfm.defaultSsfBlockLength();
+        Matrix factors = getFactors(processor, nPeriodExt, nf, blockLength);
+        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, blockLength);
         Matrix residuals = getResiduals(processor, dfmData, nPeriod, neq);
         Matrix residualsStandardized = getStandardizedResiduals(processor, dfmData, nPeriod, neq);
         
@@ -534,9 +532,9 @@ public class DynamicFactorModels {
         int nPeriodExt = dfmDataExtended.getCurrentDomain().getLength();
         int nf = dfm.getNfactors();
         int neq = dfm.getMeasurementsCount();
-        int mlags = dfm.measurementsLags();
-        Matrix factors = getFactors(processor, nPeriodExt, nf, mlags);
-        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, mlags);
+        int blockLength = dfm.defaultSsfBlockLength();
+        Matrix factors = getFactors(processor, nPeriodExt, nf, blockLength);
+        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, blockLength);
         Matrix residuals = getResiduals(processor, dfmData, nPeriod, neq);
         Matrix residualsStandardized = getStandardizedResiduals(processor, dfmData, nPeriod, neq);
 
@@ -553,6 +551,49 @@ public class DynamicFactorModels {
                 .likelihood(dfmK.getEstimator().getLikelihood())
                 .logLikelihood(dfmK.getEstimator().getLikelihood().logLikelihood())
                 .build();
-    } 
+    }
+    
+        public DfmResults process(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts){
+        
+        DfmResults.Builder builder = DfmResults.builder();
+        
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, builder);
+        
+        DfmProcessor processor = DfmProcessor.builder().build();
+        TsPeriod fLast = dfmData.getCurrentDomain().getEndPeriod().plus(nForecasts);
+        TsInformationSet dfmDataExtended = dfmData.extendTo(fLast.start().toLocalDate());
+        processor.process(dfmModel, dfmDataExtended);
+        
+        int nPeriod = dfmData.getCurrentDomain().getLength();
+        int nPeriodExt = dfmDataExtended.getCurrentDomain().getLength();
+        int nf = dfmModel.getNfactors();
+        int neq =dfmModel.getMeasurementsCount();
+        int blockLength = dfmModel.defaultSsfBlockLength();
+        Matrix factors = getFactors(processor, nPeriodExt, nf, blockLength);
+        Matrix factorsSdErr = getFactorsSdErr(processor, nPeriodExt, nf, blockLength);
+        Matrix residuals = getResiduals(processor, dfmData, nPeriod, neq);
+        Matrix residualsStandardized = getStandardizedResiduals(processor, dfmData, nPeriod, neq);
+        
+        return builder
+                .dfmData(dfmData)
+                .dfm(dfmModel)
+                .smoothedStates(processor.getSmoothingResults())
+                .factors(factors)
+                .factorsStdErr(factorsSdErr)
+                .residuals(residuals)
+                .residualsStandardized(residualsStandardized)
+                .build();    
+    }
+        
+    public boolean computeNews(DynamicFactorModel dfm, TsInformationSet oldData, TsInformationSet newData){
+        
+        DfmNews test = new DfmNews(dfm);
+        test.process(oldData, newData);
+        
+        TsInformationSet dataOld = test.getOldInformationSet();
+        TsInformationSet dataNew = test.getNewInformationSet();
+        
+        return true;
+    }
 }
 

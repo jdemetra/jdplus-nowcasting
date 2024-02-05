@@ -34,7 +34,7 @@ import jdplus.toolkit.base.core.ssf.multivariate.IMultivariateSsf;
  * @author Jean Palate
  */
 @lombok.Value
-@lombok.Builder(builderClassName="Builder")
+@lombok.Builder(builderClassName = "Builder")
 public class DynamicFactorModel implements GenericExplorable {
 
     /**
@@ -50,14 +50,13 @@ public class DynamicFactorModel implements GenericExplorable {
     @lombok.Singular
     private List<MeasurementDescriptor> measurements;
 
-
     public DynamicFactorModel rescaleVariances(double cvar) {
         if (cvar == 1) {
             return this;
         }
-        
+
         Builder builder = builder().var(var.rescaleVariance(cvar));
-         for (MeasurementDescriptor m : measurements) {
+        for (MeasurementDescriptor m : measurements) {
             builder.measurement(m.rescaleVariance(cvar));
         }
         return builder.build();
@@ -144,7 +143,7 @@ public class DynamicFactorModel implements GenericExplorable {
             LowerTriangularMatrix.solveLX(L, A);
         }
 
-         Builder builder = builder().var(new VarDescriptor(C.all(), var.getInitialization()));
+        Builder builder = builder().var(new VarDescriptor(C.all(), var.getInitialization()));
 
         // L contains the Cholesky factor
         // transform the loadings
@@ -193,10 +192,12 @@ public class DynamicFactorModel implements GenericExplorable {
     }
 
     /**
-     * @return Minimum number of factor items for the ssf representation.
+     * @return Normal number of factor items in the ssf representation. The
+     * state should contain: f0(t)...f0(t-n+1) f1(t)...f1(t-n+1)... where
+     * n=defaultSsfBlockLength()
      */
-    public int minSsfBlockLength() {
-        int n = var.getNlags();
+    public int defaultSsfBlockLength() {
+        int n = 1 + var.getNlags();
         for (MeasurementDescriptor desc : measurements) {
             int l = desc.getType().getLength();
             if (n < l) {
@@ -207,11 +208,11 @@ public class DynamicFactorModel implements GenericExplorable {
     }
 
     /**
-     * Number of lags needed to apply the different measurement.
+     * Number of items needed to apply the different measurements.
      * 
-     * @return 
+     * @return
      */
-    public int measurementsLags() {
+    public int measurementsLength() {
         int n = 0;
         for (MeasurementDescriptor desc : measurements) {
             int l = desc.getType().getLength();
@@ -219,9 +220,9 @@ public class DynamicFactorModel implements GenericExplorable {
                 n = l;
             }
         }
-        return n-1;
+        return n;
     }
-    
+
     /**
      *
      * @param nlags
@@ -231,11 +232,19 @@ public class DynamicFactorModel implements GenericExplorable {
         return SsfDfm.of(this, nlags);
     }
 
+    /**
+     * Defines a state space with an array that contains
+     * f0(t)...f0(t-blocklength+1) f1(t)...f1(t-blocklenth+1)
+     * @param blockLength
+     * @return 
+     */
     public IMultivariateSsf ssfRepresentationWithBlockLength(int blockLength) {
-        if (blockLength<minSsfBlockLength())
+        if (blockLength < defaultSsfBlockLength()) {
             throw new DfmException();
+        }
         return SsfDfm.withBlockLength(this, blockLength);
     }
+
     /**
      *
      * @return
