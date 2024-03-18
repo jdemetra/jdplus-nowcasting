@@ -63,7 +63,7 @@ public class DfmResults implements GenericExplorable {
 
         int nPeriodExt = dfmData.getCurrentDomain().getLength() + nf;
         int neq = dfm.getMeasurementsCount();
-        int nFactor = dfm.getNfactors();
+
         FastMatrix fcastsT = FastMatrix.make(nPeriodExt, neq);
         IMultivariateSsf ssf = dfm.ssfRepresentation(0);
 
@@ -120,13 +120,12 @@ public class DfmResults implements GenericExplorable {
 
         int nPeriodExt = dfmData.getCurrentDomain().getLength() + nf;
         int neq = dfm.getMeasurementsCount();
-        int mlags = dfm.measurementsLength();
-        int nFactor = dfm.getNfactors();
         FastMatrix fcastsTStDev = FastMatrix.make(nPeriodExt, neq);
-
+        IMultivariateSsf ssf = dfm.ssfRepresentation(0);
+        
         for (int k = 0; k < neq; ++k) {
-            DataBlock Zk = DataBlock.make((mlags + 1) * nFactor);
-            dfm.ssfRepresentation(0).measurements().loading(k).Z(k, Zk);
+            DataBlock Zk = DataBlock.make(ssf.getStateDim());
+            ssf.measurements().loading(k).Z(k, Zk);
             DoubleSeq ZPZk = smoothedStates.zvariance(Zk);
             double H = dfm.getMeasurements().get(k).getVariance();
             DoubleSeq Fk = ZPZk.plus(H);

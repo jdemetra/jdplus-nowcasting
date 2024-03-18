@@ -1,20 +1,19 @@
 
-<<<<<<< HEAD
 import jdplus.dfm.base.core.DfmEstimates;
 import jdplus.dfm.base.core.DfmResults;
-||||||| e2f68b0
-import jdplus.dfm.base.core.DfmResults;
-=======
 import java.util.ArrayList;
 import java.util.List;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.DfmNews;
->>>>>>> origin/develop
+import jdplus.dfm.base.core.DfmProcessor;
+import jdplus.dfm.base.core.DfmResultsNews;
 import jdplus.dfm.base.core.DynamicFactorModel;
 import jdplus.dfm.base.r.DynamicFactorModels;
 import jdplus.toolkit.base.api.data.DoubleSeq;
+import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.api.timeseries.TsData;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
+import jdplus.toolkit.base.core.data.DataBlock;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 
 /*
@@ -79,7 +78,7 @@ public class DynamicFactorModelsNewsTest {
             -8.1, -8.1, -4.9, -4.6, -4.9, -3.3, -1.5, 0.4, -1.3, 1.1, 1.8, 1.2, 0.6, 1.3, 5.5, 3.8, 2.4, 4, 6.6, 4.7, 2.7, 5.2, 2.8,
             4.5, 2, 0.4, -0.4, -2.7, -1.3, -3.2, -2.7, -5, -3.9, -6.8, -1.8, -5.1, -7.9, -6.3, -7.2, -7, -7.5, -9.1, -2.8, -3, -8.6,
             -42.2, -26.9, -16.2, -13.4, -8.3, -9.9, -11.7, -16.1, -11.2, -10.1, -7.3, -7.1, -1.9, 2.1, 2.2, 6.8, 4.4, 2.3, 3.9, 5.5,
-            4.9, 5.3, 7.5, 1.3, -0.2, 0.1, 0.2, -0.7, -4.6, 6.5, -6.8, -9.1, -8.5, -6.3, -6.3, -4.5};
+            4.9, 5.3, 7.5, 1.3, -0.2, 0.1, 0.2, -0.7, -4.6, -6.5, -6.8, -9.1, -8.5, -6.3, -6.3, -4.5};
 
         double[] PMI_FR_v1 = {0.4, 0, 1.2, -0.2, 0.2, 0.3, -0.1, -0.1, -0.3, 0.3, 0.5, 0.4, -0.9, -1.1, 0.4, 0.1, -0.2, 1.3, -0.8,
             -0.3, 0.9, 0.9, 0.2, 1.2, 0.3, 0.2, 0.8, 0.5, 0.3, 0.4, -0.8, 0.8, 0.7, 0.4, 1.6, 0.5, -1, -1, -2, -0.4, -0.7, -0.6, 0.2,
@@ -95,7 +94,7 @@ public class DynamicFactorModelsNewsTest {
             -0.3, 0.9, 0.9, 0.2, 1.2, 0.3, 0.2, 0.8, 0.5, 0.3, 0.4, -0.8, 0.8, 0.7, 0.4, 1.6, 0.5, -1, -1, -2, -0.4, -0.7, -0.6, 0.2,
             -0.5, -1.4, -1.2, -0.2, -0.4, -0.9, -1.2, -1.8, 0.4, -0.2, -0.1, -1.1, 0.5, -1.3, 0.2, 1, -0.6, 1.6, 1.3, -4.7, -11.1, 6,
             8, 4.4, -0.1, 2, 1.1, -1, 1.4, -0.4, 3.1, 4.6, 0.4, 0.2, 0.3, -0.6, -1.4, -2.8, -0.3, 0.1, -0.4, 0.7, -0.5, -1.7, -1, -0.9,
-            -2.5, -2.3, -0.1, -1.3, -2, 0.7, 0.7, 1, -0.3, -1.2};
+            -2.5, -2.3, -0.1, -1.3, -2, 0.7, 0.7, 1, -0.3, Double.NaN};
 
         double[] GDP_FR_v1 = {Double.NaN, Double.NaN, 0.002, Double.NaN, Double.NaN, 0.001, Double.NaN, Double.NaN, 0.001, Double.NaN,
             Double.NaN, 0.001, Double.NaN, Double.NaN, 0.003, Double.NaN, Double.NaN, -0.002, Double.NaN, Double.NaN, 0.002, Double.NaN,
@@ -142,8 +141,8 @@ public class DynamicFactorModelsNewsTest {
         String[] factorType = new String[]{"M", "M", "YoY", "M", "Q"};
         FastMatrix factorLoaded = FastMatrix.make(factorType.length, nf);
         double[] l1 = {1, 1};
-        double[] l2 = {1, 1};
-        double[] l3 = {1, 1};
+        double[] l2 = {1, 0};
+        double[] l3 = {1, 0};
         factorLoaded.row(0).copyFrom(l1, 0);
         factorLoaded.row(1).copyFrom(l3, 0);
         factorLoaded.row(2).copyFrom(l1, 0);
@@ -151,50 +150,30 @@ public class DynamicFactorModelsNewsTest {
         factorLoaded.row(4).copyFrom(l1, 0);
 
         DynamicFactorModel dfmInit = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional", null);
-
-// Code Corentin
+        
+//        DfmEstimates dfmEst = DynamicFactorModels.estimate_PCA(dfmInit, data1, 12, start, false);
+        DfmEstimates dfmEst = DynamicFactorModels.estimate_EM(dfmInit, data1, 12, start, false, true, 100, 1e-09);
+//        DfmEstimates dfmEst = DynamicFactorModels.estimate_ML(dfmInit, data1, 12, start, false, true, true, 100, 1e-09, 1000, 5, 15, false, true, 1e-09);
+        
+        DynamicFactorModel dfm = dfmEst.getDfm();    
+        System.out.println(dfm);
+        
+        DfmResults rslt1 = DynamicFactorModels.process(dfm, data1, 12, start, false, 12);  
+        DfmResults rslt2 = DynamicFactorModels.process(dfm, data2bis, 12, start, false, 12); 
+        
+        // Tests differences in fcsts
+        
+        int nr = rslt2.getInputData().column(2).length();
+        System.out.println("fcst1:");
+        Matrix forecasts = rslt2.forecasts(1);
+        System.out.println(forecasts.row(nr).get(2));
+        
+        DfmResultsNews test2 = DynamicFactorModels.computeNews(2, dfm, data1, data2bis, 12, start, false, 1);
+        System.out.println("fcst2:");
+        System.out.println(test2.getNewForecasts()); 
         
         
-        
-        DynamicFactorModel dfm1 = dfmEst.getDfm();
-        
-        DfmResults rslt1 = DynamicFactorModels.process(dfm1, data1, 12, start, false, 12);
-        DfmResults rslt2 = DynamicFactorModels.process(dfm1, data2bis, 12, start, false, 12);
-        
-        System.out.println(rslt1.forecasts(3));
-        System.out.println(rslt2.forecasts(3));
-        
-        FastMatrix mCoeff = FastMatrix.make(factorType.length, nf);
-        double[] mVar = new double[factorType.length];
-        for (int i=0; i<factorType.length; i++){
-            mCoeff.row(i).copyFrom(dfm1.getMeasurements().get(i).getCoefficient().toArray(), 0);
-            mVar[i] = dfm1.getMeasurements().get(i).getVariance();
-        }
-        
-        DynamicFactorModel dfmInit2 = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional",    
-                dfm1.getVar().getCoefficients(), 
-                dfm1.getVar().getInnovationsVariance(), 
-                mCoeff,
-                mVar);
-        
-        DfmEstimates dfmEst2 = DynamicFactorModels.estimate_EM(dfmInit, data1, 12, start, false, true, 500, 1e-9);
-        
-        System.out.println(dfmEst2.getLl());
-        System.out.println(dfmEst2.getHessian());
-        
-//        Boolean test = DynamicFactorModels.computeNews(dfm1, rslt1.getDfmData(), rslt2.getDfmData());
-
-// Code Jean
-	 DynamicFactorModel dfm1 = DynamicFactorModels.estimate_PCA(dfmInit, data1, 12, start, true);
-        System.out.println(dfm1);
-
-//        DfmResults rslt1 = DynamicFactorModels.process(dfm1, data1, 12, start, false, 12);
-//        DfmResults rslt2 = DynamicFactorModels.process(dfm1, data2bis, 12, start, false, 12);
-//        
-//           
-//        System.out.println(rslt1.forecasts(3));
-//        System.out.println(rslt2.forecasts(3));
-//        
+        // Tests class DfmNews (Jean)
         List<TsData> ls1 = new ArrayList<>();
         List<TsData> ls2 = new ArrayList<>();
         List<TsData> ls2bis = new ArrayList<>();
@@ -204,22 +183,25 @@ public class DynamicFactorModelsNewsTest {
             ls2bis.add(TsData.ofInternal(pstart, seriesAllV2bis[i]));
         }
         TsInformationSet ti1 = new TsInformationSet(ls1);
-        TsInformationSet ti2 = new TsInformationSet(ls2);
+//        TsInformationSet ti2 = new TsInformationSet(ls2);
         TsInformationSet ti2bis = new TsInformationSet(ls2bis);
+        
         System.out.println("");
-        DfmNews test = new DfmNews(dfm1);
+        DfmNews test = new DfmNews(dfm);
         test.process(ti1, ti2bis);
-        TsPeriod t = ls1.get(1).getEnd();
+        
+        TsPeriod t = ls1.get(2).cleanExtremities().getEnd();
         System.out.println(test.revisions());
 //        DoubleSeq rweights = test.weightsRevisions(4, t);
 //        System.out.println(rweights);
         System.out.println(test.news());
-        DoubleSeq weights = test.weights(4, t);
+        DoubleSeq weights = test.weights(2, t);
         System.out.println(weights);
         System.out.println(test.getOldForecast(4, t));
         System.out.println(test.getRevisedForecast(4, t));
         System.out.println(test.getNewForecast(4, t));
-
+        System.out.println(test.revisions());
+        
     }
 
 }

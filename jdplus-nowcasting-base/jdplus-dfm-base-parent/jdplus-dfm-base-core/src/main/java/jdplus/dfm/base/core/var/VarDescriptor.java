@@ -104,7 +104,7 @@ public class VarDescriptor {
     public static VarDescriptor defaultVar(int nfactors, int nlags, ISsfInitialization.Type initialization) {
         return new VarDescriptor(defaultCoefficients(nfactors, nlags), initialization);
     }
-
+    
     public VarDescriptor withDefault() {
 
         FastMatrix V = defaultInnovationsVariance(getNfactors());
