@@ -39,6 +39,7 @@
     <properties>
         <!-- Java 17 config -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.build.outputTimestamp>2024-01-01T00:00:00Z</project.build.outputTimestamp>
         <maven.compiler.target>17</maven.compiler.target>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.release>17</maven.compiler.release>
@@ -49,17 +50,17 @@
 
         <!-- annotations & processors -->
         <lombok.version>1.18.30</lombok.version>
-        <java-service.version>1.8.0</java-service.version>
+        <java-service.version>1.9.0</java-service.version>
         <java-design.version>1.5.0</java-design.version>
         <checker-qual.version>3.42.0</checker-qual.version>
 
         <!-- test frameworks -->
-        <junit.version>5.10.1</junit.version>
-        <assertj-core.version>3.25.2</assertj-core.version>
+        <junit.version>5.10.2</junit.version>
+        <assertj-core.version>3.25.3</assertj-core.version>
 
         <!-- dependencies -->
         <jd2.version>2.2.4</jd2.version>
-        <jdplus-main.version>3.2.1</jdplus-main.version>
+        <jdplus-main.version>3.2.2</jdplus-main.version>
         <protobuf.version>3.21.12</protobuf.version>
     </properties>
 
@@ -218,12 +219,17 @@
                 <plugin>
                     <groupId>org.simplify4u.plugins</groupId>
                     <artifactId>sign-maven-plugin</artifactId>
-                    <version>1.0.1</version>
+                    <version>1.1.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.sonatype.plugins</groupId>
                     <artifactId>nexus-staging-maven-plugin</artifactId>
                     <version>1.6.13</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.jreleaser</groupId>
+                    <artifactId>jreleaser-maven-plugin</artifactId>
+                    <version>1.11.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -317,7 +323,7 @@
                     <dependency>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>extra-enforcer-rules</artifactId>
-                        <version>1.7.0</version>
+                        <version>1.8.0</version>
                     </dependency>
                     <dependency>
                         <groupId>org.kordamp.maven</groupId>
