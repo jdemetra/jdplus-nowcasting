@@ -32,5 +32,7 @@ module jdplus.dfm.base.core {
     
     provides InformationExtractor with
         jdplus.dfm.base.core.extractors.DynamicFactorModelExtractor,
-        jdplus.dfm.base.core.extractors.DfmResultsExtractor;
+        jdplus.dfm.base.core.extractors.DfmEstimatesExtractor,
+        jdplus.dfm.base.core.extractors.DfmResultsExtractor,
+        jdplus.dfm.base.core.extractors.DfmResultsNewsExtractor;
 }

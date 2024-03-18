@@ -508,7 +508,7 @@ public class DfmNews {
             int jstart = TsUtility.endPeriod(jupdate.getPeriod(), freq).until(end);
             V.set(0);
             for (int r = 0; r < nf; ++r) {
-                for (int s = 0; s < nf; ++s) {
+                for (int s = 0; s < nf; ++s) {                   
                     V.extract(r * c, c, s * c, c).copy(covNews.extract(r * nbnews + istart, c,
                             s * nbnews + jstart, c));
                 }

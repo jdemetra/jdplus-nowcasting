@@ -25,6 +25,7 @@ import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.eco.EcoException;
+import jdplus.toolkit.base.api.information.GenericExplorable;
 import jdplus.toolkit.base.api.math.Constants;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.api.stats.AutoCovariances;

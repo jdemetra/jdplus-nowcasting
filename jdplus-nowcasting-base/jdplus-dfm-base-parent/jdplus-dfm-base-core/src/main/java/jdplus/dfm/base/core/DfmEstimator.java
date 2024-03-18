@@ -22,6 +22,7 @@ import jdplus.dfm.base.api.NumericalProcessingSpec;
 import jdplus.dfm.base.api.timeseries.TsInformationSet;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.data.DoublesMath;
+import jdplus.toolkit.base.api.information.GenericExplorable;
 import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.core.data.DataBlock;
