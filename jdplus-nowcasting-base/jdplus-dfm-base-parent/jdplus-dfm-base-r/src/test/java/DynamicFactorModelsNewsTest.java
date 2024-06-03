@@ -152,17 +152,17 @@ public class DynamicFactorModelsNewsTest {
         DynamicFactorModel dfmInit = DynamicFactorModels.model(nf, nl, factorType, factorLoaded, "Unconditional", null);
         
 //        DfmEstimates dfmEst = DynamicFactorModels.estimate_PCA(dfmInit, data1, 12, start, false);
-        DfmEstimates dfmEst = DynamicFactorModels.estimate_EM(dfmInit, data1, 12, start, false, true, 100, 1e-09);
-//        DfmEstimates dfmEst = DynamicFactorModels.estimate_ML(dfmInit, data1, 12, start, false, true, true, 100, 1e-09, 1000, 5, 15, false, true, 1e-09);
+        DfmEstimates dfmEst = DynamicFactorModels.estimate_EM(dfmInit, data1, 12, start, false, null, null, true, 100, 1e-09);
+//        DfmEstimates dfmEst = DynamicFactorModels.estimate_ML(dfmInit, data1, 12, start, false, null, null, true, true, 100, 1e-09, 1000, 5, 15, false, true, 1e-09);
         
         DynamicFactorModel dfm = dfmEst.getDfm();    
         System.out.println(dfm);
         
-        DfmResults rslt1 = DynamicFactorModels.process(dfm, data1, 12, start, false, 12);  
-        DfmResults rslt2 = DynamicFactorModels.process(dfm, data2bis, 12, start, false, 12); 
+        DfmResults rslt1 = DynamicFactorModels.process(dfm, data1, 12, start, false, null, null, 12);  
+        DfmResults rslt2 = DynamicFactorModels.process(dfm, data2bis, 12, start, false, rslt1.getSampleMean().toArray(), rslt1.getSampleStDev().toArray(), 12); 
+        
         
         // Tests differences in fcsts
-        
         int nr = rslt2.getInputData().column(2).length();
         System.out.println("fcst1:");
         Matrix forecasts = rslt2.forecasts(1);
@@ -173,7 +173,7 @@ public class DynamicFactorModelsNewsTest {
         System.out.println(test2.getNewForecasts()); 
         
         
-        // Tests class DfmNews (Jean)
+        // Tests class DfmNews
         List<TsData> ls1 = new ArrayList<>();
         List<TsData> ls2 = new ArrayList<>();
         List<TsData> ls2bis = new ArrayList<>();

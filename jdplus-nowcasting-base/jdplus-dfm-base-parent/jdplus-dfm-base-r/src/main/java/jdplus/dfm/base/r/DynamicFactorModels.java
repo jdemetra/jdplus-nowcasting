@@ -134,53 +134,6 @@ public class DynamicFactorModels {
         return dfmEst.getDfm();
     }
     
-    // model from scratch -> NOT USED ANYMORE IN rjd3nowcasting v2+
-    public DynamicFactorModel model(int nfactors, int nlags, String[] factorType, Matrix factorLoaded, String varInit, double[] mVariance) {
-
-        if (factorLoaded.getRowsCount() != factorType.length) {
-            throw new IllegalArgumentException("The number of rows of factorLoaded should match the length of factor Type");
-        }
-        if (factorLoaded.getColumnsCount() != nfactors) {
-            throw new IllegalArgumentException("The number of columns of factorLoaded should match nfactors");
-        }
-
-        ISsfInitialization.Type varInitType = ISsfInitialization.Type.Unconditional;
-        if (varInit.equals("Zero")) {
-            varInitType = ISsfInitialization.Type.Zero;
-        }
-        VarDescriptor varDesc = VarDescriptor.defaultVar(nfactors, nlags, varInitType);
-   
-        FastMatrix factorLoadedM = FastMatrix.make(factorLoaded.getRowsCount(), factorLoaded.getColumnsCount());
-        List<MeasurementDescriptor> mDescs = new ArrayList<>();
-        for (int i = 0; i < factorType.length; ++i) {
-            IDfmMeasurement factorTransf;
-            factorTransf = switch (factorType[i]) {
-                case "YoY" ->
-                    IDfmMeasurement.measurement(MeasurementType.YoY);
-                case "Q" ->
-                    IDfmMeasurement.measurement(MeasurementType.Q);
-                default ->
-                    IDfmMeasurement.measurement(MeasurementType.M);
-            };
-            for (int j = 0; j < nfactors; ++j) {
-                factorLoadedM.set(i, j, factorLoaded.get(i, j) == 0 ? Double.NaN : 1); // if not used, defined as NaN in class DynamicFactorModel
-            }
-            MeasurementDescriptor mdesc = MeasurementDescriptor.builder()
-                    .type(factorTransf)
-                    .coefficient(factorLoadedM.row(i))
-                    .variance(mVariance == null ? 1 : mVariance[i])
-                    .build();
-            mDescs.add(mdesc);
-        }
-
-        DynamicFactorModel dfm = DynamicFactorModel.builder()
-                .measurements(mDescs)
-                .var(varDesc)
-                .build();
-
-        return dfm;
-    }
-    
     // model with pre-initialized values of the parameters  -> used from rjd3nowcasting v2+
     public DynamicFactorModel model(int nfactors, int nlags, String[] factorType, Matrix factorLoaded, String varInit,
                                      Matrix varCoefficients, Matrix varInnovationsVariance, Matrix mCoefficients, double[] mIdiosyncraticErrVariance) {
@@ -255,9 +208,10 @@ public class DynamicFactorModels {
         return dfm;
     }
     
-    public DfmEstimates estimate_PCA(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized){
+    public DfmEstimates estimate_PCA(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, 
+            double[] fixedSampleMean, double[] fixedStDev){
                 
-        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, null, null, null);
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, fixedSampleMean, fixedStDev, null);
         
         PrincipalComponentsInitializer initializer = new PrincipalComponentsInitializer();
         DynamicFactorModel dfm = initializer.initialize(dfmModel, dfmData);
@@ -270,9 +224,9 @@ public class DynamicFactorModels {
     }
       
     public DfmEstimates estimate_EM(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, 
-            boolean pcaInit, int maxIter, double eps) {
+            double[] fixedSampleMean, double[] fixedStDev, boolean pcaInit, int maxIter, double eps) {
         
-        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, null, null, null);
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, fixedSampleMean, fixedStDev, null);
         
         DynamicFactorModel dfm0;
         if (pcaInit) {
@@ -302,10 +256,10 @@ public class DynamicFactorModels {
     }
 
     public DfmEstimates estimate_ML(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized,
-            boolean pcaInit, boolean emInit, int emInitmaxIter, double emInitEps, int maxIter, int maxBlockIter, 
-            int simplModelIter, boolean independentVARShocks, boolean mixedEstimation, double eps) {
+            double[] fixedSampleMean, double[] fixedStDev, boolean pcaInit, boolean emInit, int emInitmaxIter, double emInitEps, 
+            int maxIter, int maxBlockIter, int simplModelIter, boolean independentVARShocks, boolean mixedEstimation, double eps) {
             
-        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, null, null, null);
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, fixedSampleMean, fixedStDev, null);
          
         DynamicFactorModel dfm0 = dfmModel;
         if (pcaInit) {
@@ -345,11 +299,12 @@ public class DynamicFactorModels {
         return dfmE;
     }
     
-    public DfmResults process(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts){
+    public DfmResults process(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, 
+            double[] fixedSampleMean, double[] fixedStDev, int nForecasts){
         
         DfmResults.Builder builder = DfmResults.builder();
         
-        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, null, null, builder);
+        TsInformationSet dfmData = prepareInput(data, freq, start, standardized, fixedSampleMean, fixedStDev, builder);
         
         DfmProcessor processor = DfmProcessor.builder().build();
         TsPeriod fLast = dfmData.getCurrentDomain().getEndPeriod().plus(nForecasts);
@@ -537,9 +492,56 @@ public class DynamicFactorModels {
 
     
 /*--------------------------------------------------------------------------
-DEPRECATED METHODS (rjd3nowcasting v1): estimation of coefficients 
-together with processing  
+DEPRECATED METHODS (rjd3nowcasting v1): model from scratch only and estimation  
+of coefficients together with processing  
 --------------------------------------------------------------------------*/
+    
+    // model from scratch
+    public DynamicFactorModel model(int nfactors, int nlags, String[] factorType, Matrix factorLoaded, String varInit, double[] mVariance) {
+
+        if (factorLoaded.getRowsCount() != factorType.length) {
+            throw new IllegalArgumentException("The number of rows of factorLoaded should match the length of factor Type");
+        }
+        if (factorLoaded.getColumnsCount() != nfactors) {
+            throw new IllegalArgumentException("The number of columns of factorLoaded should match nfactors");
+        }
+
+        ISsfInitialization.Type varInitType = ISsfInitialization.Type.Unconditional;
+        if (varInit.equals("Zero")) {
+            varInitType = ISsfInitialization.Type.Zero;
+        }
+        VarDescriptor varDesc = VarDescriptor.defaultVar(nfactors, nlags, varInitType);
+   
+        FastMatrix factorLoadedM = FastMatrix.make(factorLoaded.getRowsCount(), factorLoaded.getColumnsCount());
+        List<MeasurementDescriptor> mDescs = new ArrayList<>();
+        for (int i = 0; i < factorType.length; ++i) {
+            IDfmMeasurement factorTransf;
+            factorTransf = switch (factorType[i]) {
+                case "YoY" ->
+                    IDfmMeasurement.measurement(MeasurementType.YoY);
+                case "Q" ->
+                    IDfmMeasurement.measurement(MeasurementType.Q);
+                default ->
+                    IDfmMeasurement.measurement(MeasurementType.M);
+            };
+            for (int j = 0; j < nfactors; ++j) {
+                factorLoadedM.set(i, j, factorLoaded.get(i, j) == 0 ? Double.NaN : 1); // if not used, defined as NaN in class DynamicFactorModel
+            }
+            MeasurementDescriptor mdesc = MeasurementDescriptor.builder()
+                    .type(factorTransf)
+                    .coefficient(factorLoadedM.row(i))
+                    .variance(mVariance == null ? 1 : mVariance[i])
+                    .build();
+            mDescs.add(mdesc);
+        }
+
+        DynamicFactorModel dfm = DynamicFactorModel.builder()
+                .measurements(mDescs)
+                .var(varDesc)
+                .build();
+
+        return dfm;
+    }
     
     public DfmResults estimate_PCA(DynamicFactorModel dfmModel, Matrix data, int freq, int[] start, boolean standardized, int nForecasts) {
         
