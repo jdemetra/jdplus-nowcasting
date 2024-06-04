@@ -29,6 +29,7 @@ import jdplus.dfm.base.api.EmSpec;
 import jdplus.dfm.base.core.var.VarDescriptor;
 import jdplus.toolkit.base.api.data.DoubleSeq;
 import jdplus.toolkit.base.api.data.DoubleSeqCursor;
+import jdplus.toolkit.base.api.information.GenericExplorable;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.GeneralMatrix;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
@@ -251,7 +252,7 @@ public class DfmEM implements IDfmInitializer {
     public DynamicFactorModel initialize(DynamicFactorModel rdfm, TsInformationSet data) {
         this.dfm = rdfm;
         this.data = data;
-        this.nxlags = rdfm.minSsfBlockLength();
+        this.nxlags = rdfm.defaultSsfBlockLength();
         this.processor = DfmProcessor.builder()
                 .calcVariance(true)
                 .build();

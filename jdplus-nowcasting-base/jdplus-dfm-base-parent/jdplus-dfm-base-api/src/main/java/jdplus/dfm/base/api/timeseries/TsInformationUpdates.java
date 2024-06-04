@@ -161,6 +161,12 @@ public class TsInformationUpdates {
         return Collections.unmodifiableList(revisions);
     }
     
+    public List<Update> all(){
+        ArrayList<Update> all=new ArrayList<>(news);
+        all.addAll(revisions);
+        return Collections.unmodifiableList(all);
+    }
+    
     public boolean isEmpty(){
         return news.isEmpty() && revisions.isEmpty();
     }
