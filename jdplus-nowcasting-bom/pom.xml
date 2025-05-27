@@ -127,5 +127,34 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>check-compatibility</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.nbbrd.nbbrd-maven-tools</groupId>
+                        <artifactId>compatibility-maven-plugin</artifactId>
+                        <version>1.0.3</version>
+                        <executions>
+                            <execution>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check-upstream</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>https://github.com/jdemetra/jdplus-main</source>
+                                    </sources>
+                                    <sourceBindings>eu.europa.ec.joinup.sat:jdplus*</sourceBindings>
+                                    <sourceLimits>3</sourceLimits>
+                                    <target>${project.baseUri}/../</target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
