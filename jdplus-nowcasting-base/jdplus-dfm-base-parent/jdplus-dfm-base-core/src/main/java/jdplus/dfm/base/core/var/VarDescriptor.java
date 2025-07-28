@@ -20,7 +20,7 @@ import jdplus.toolkit.base.api.math.matrices.Matrix;
 import jdplus.toolkit.base.core.math.matrices.FastMatrix;
 import jdplus.toolkit.base.core.math.matrices.SymmetricMatrix;
 import jdplus.toolkit.base.core.ssf.ISsfInitialization;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import lombok.NonNull;
 
 /**
  * Description of a VAR component
