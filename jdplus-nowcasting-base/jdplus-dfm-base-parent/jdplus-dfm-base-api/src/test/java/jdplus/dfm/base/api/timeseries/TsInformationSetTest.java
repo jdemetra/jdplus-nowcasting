@@ -15,7 +15,7 @@
  * limitations under the Licence.
  */
 package jdplus.dfm.base.api.timeseries;
-
+import org.junit.jupiter.api.Test;
 import tck.demetra.data.Data;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,8 +25,7 @@ import jdplus.toolkit.base.api.timeseries.TsData;
 import jdplus.toolkit.base.api.timeseries.TsDomain;
 import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.api.timeseries.TsUnit;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  *

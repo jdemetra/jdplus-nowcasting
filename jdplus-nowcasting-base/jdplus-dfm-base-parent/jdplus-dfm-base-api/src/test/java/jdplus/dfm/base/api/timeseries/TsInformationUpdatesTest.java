@@ -25,6 +25,7 @@ import jdplus.toolkit.base.api.timeseries.TsPeriod;
 import jdplus.toolkit.base.api.timeseries.TsUnit;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+
 import tck.demetra.data.Data;
 
 /**
@@ -57,13 +58,13 @@ public class TsInformationUpdatesTest {
     public TsInformationUpdatesTest() {
     }
 
-    @org.junit.Test
+    @org.junit.jupiter.api.Test
     public void testCalendar() {
 
         TsInformationSet infoSet = new TsInformationSet(OSERIES);
         TsInformationSet ninfoSet = new TsInformationSet(SERIES);
         TsInformationUpdates updates = infoSet.updates(ninfoSet);
-        assertTrue(updates.news().size() == 24);
+        assertEquals(24, updates.news().size());
         assertTrue(updates.revisions().isEmpty());
 
         TsPeriod first = updates.firstUpdate(12);
@@ -71,7 +72,7 @@ public class TsInformationUpdatesTest {
         assertTrue(last.isAfter(first));
 
         TsDomain udom = TsInformationUpdates.updatesDomain(1, updates.news());
-        assertTrue(!udom.isEmpty());
+        assertFalse(udom.isEmpty());
 
         TsInformationSet rinfoSet = infoSet.revisedData(ninfoSet);
         for (int i = 0; i < rinfoSet.getSeriesCount(); ++i) {
