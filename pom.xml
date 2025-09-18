@@ -430,7 +430,10 @@
                 </executions>
                 <configuration>
                     <versioning>semver</versioning>
-                    <tagPrefix>v</tagPrefix>
+                    <tagging>prefix:v</tagging>
+                    <rules>
+                        <rule>no-empty-release:OFF</rule>
+                    </rules>
                 </configuration>
             </plugin>
         </plugins>
