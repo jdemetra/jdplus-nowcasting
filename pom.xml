@@ -37,12 +37,12 @@
     </scm>
 
     <properties>
-        <!-- Java 17 config -->
+        <!-- Java config -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.build.outputTimestamp>2024-06-04T08:56:42Z</project.build.outputTimestamp>
-        <maven.compiler.target>17</maven.compiler.target>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.release>21</maven.compiler.release>
         <requiredMavenVersion>3.9.11</requiredMavenVersion>
 
         <!-- GitHub hosting -->
@@ -60,8 +60,8 @@
         <assertj-core.version>3.27.7</assertj-core.version>
 
         <!-- dependencies -->
-        <jd2.version>2.2.4</jd2.version>
-        <jdplus-main.version>3.6.0</jdplus-main.version>
+        <jd2.version>2.2.6</jd2.version>
+        <jdplus-main.version>3.7.1</jdplus-main.version>
         <protobuf.version>3.21.12</protobuf.version>
     </properties>
 
