@@ -52,6 +52,7 @@ public class DfmResults implements GenericExplorable {
     Matrix residualsStandardized;
     Double logLikelihood;
 
+    // no estimates of the missing values
     public Matrix forecastsT(int nf) {
 
         if (nf <= 0) {
@@ -95,12 +96,80 @@ public class DfmResults implements GenericExplorable {
         return fcastsT;
     }
 
+    // incl. estimates of the missing values
+    public Matrix forecastsTM(int nf) {
+
+        if (nf <= 0) {
+            nf = dfmData.series(0).getAnnualFrequency();
+        }
+        int nPeriod = dfmData.getCurrentDomain().getLength();
+        int nOutCalc = smoothedStates.item(0).length() - nPeriod;
+        nf = Math.min(nf, nOutCalc);
+
+        int nPeriodExt = dfmData.getCurrentDomain().getLength() + nf;
+        int neq = dfm.getMeasurementsCount();
+
+        FastMatrix fcastsT = FastMatrix.make(nPeriodExt, neq);
+        IMultivariateSsf ssf = dfm.ssfRepresentation(0);
+
+        for (int k = 0; k < neq; ++k) {
+            // Loading
+            DataBlock Zk = DataBlock.make(ssf.getStateDim());
+            ssf.measurements().loading(k).Z(k, Zk);
+
+            // Position of the last observed value
+            int nlk = 0;
+            for (int l = nPeriod - 1; l >= 0; --l) {
+                boolean isLast = Double.isFinite(dfmData.series(k).get(l).getValue());
+                if (isLast) {
+                    nlk = l;
+                    break;
+                }
+            }
+            // Fill observed values with missing replacement
+            int i = 0;
+            while (i <= nlk) {
+                double val = dfmData.series(k).getValue(i);
+
+                if (Double.isFinite(val)) {
+                    fcastsT.set(i, k, val);
+                } else {
+                    DataBlock aik = smoothedStates.a(i);
+                    fcastsT.set(i, k, Zk.dot(aik));
+                }
+                ++i;
+            }
+            // Forecasts
+            int nfcsts = nPeriodExt - (nlk + 1);
+            for (int h = 0; h < nfcsts; ++h) {
+                DataBlock ahk = smoothedStates.a(nlk + 1 + h);
+                fcastsT.set(nlk + 1 + h, k, Zk.dot(ahk));
+            }
+        }
+        return fcastsT;
+    }
+
     public Matrix forecasts(int nf) {
         Matrix fcastsT = forecastsT(nf);
         FastMatrix fcasts = FastMatrix.make(fcastsT.getRowsCount(), fcastsT.getColumnsCount());
 
         for (int j = 0; j < fcasts.getColumnsCount(); ++j) {
             DoubleSeq sj = fcastsT.column(j);
+            if (!standardizedInput) {
+                sj = sj.times(sampleStDev.get(j));
+                sj = sj.plus(sampleMean.get(j));
+            }
+            fcasts.column(j).add(sj);
+        }
+        return (fcasts);
+    }
+
+    public Matrix forecastsM(int nf) {
+        Matrix fcastsTM = forecastsTM(nf);
+        FastMatrix fcasts = FastMatrix.make(fcastsTM.getRowsCount(), fcastsTM.getColumnsCount());
+
+        for (int j = 0; j < fcasts.getColumnsCount(); ++j) {
+            DoubleSeq sj = fcastsTM.column(j);
             if (!standardizedInput) {
                 sj = sj.times(sampleStDev.get(j));
                 sj = sj.plus(sampleMean.get(j));
