@@ -19,7 +19,7 @@ import nbbrd.service.ServiceProvider;
 @ServiceProvider(InformationExtractor.class)
 public class DfmResultsExtractor extends InformationMapping<DfmResults> {  
    public final int NFCAST = -1;
-   
+
     public DfmResultsExtractor() {
         set(DfmDictionaries.SAMPLE_MEAN, double[].class, source -> source.getSampleMean().toArray());
         set(DfmDictionaries.SAMPLE_STDDEV, double[].class, source -> source.getSampleStDev().toArray());
@@ -34,7 +34,9 @@ public class DfmResultsExtractor extends InformationMapping<DfmResults> {
         delegate(null, DynamicFactorModel.class, source -> source.getDfm());
         
         setArray(DfmDictionaries.FORECASTS_TRANSFORMED, NFCAST, Matrix.class, (source, i) -> source.forecastsT(i));
+        setArray(DfmDictionaries.FORECASTS_TRANSFORMED_MISS, NFCAST, Matrix.class, (source, i) -> source.forecastsTM(i));
         setArray(DfmDictionaries.FORECASTS, NFCAST, Matrix.class, (source, i) -> source.forecasts(i));
+        setArray(DfmDictionaries.FORECASTS_MISS, NFCAST, Matrix.class, (source, i) -> source.forecastsM(i));
         setArray(DfmDictionaries.FORECASTS_TRANSFORMED_STDERR, NFCAST, Matrix.class, (source, i) -> source.forecastsTStDev(i));
         setArray(DfmDictionaries.FORECASTS_STDERR, NFCAST, Matrix.class, (source, i) -> source.forecastsStDev(i));      
     }

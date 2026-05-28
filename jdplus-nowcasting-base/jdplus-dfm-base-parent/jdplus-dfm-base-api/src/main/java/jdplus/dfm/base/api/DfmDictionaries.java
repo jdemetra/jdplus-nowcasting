@@ -22,9 +22,11 @@ public class DfmDictionaries {
             INPUT_TRANSFORMED = "input_transformed", MEASUREMENT_COEFFICIENTS = "measurement_coefficients",
             MEASUREMENT_ERRORS_VARIANCE = "measurement_errors_variance", VAR_COEFFICIENTS = "var_coefficients", 
             VAR_ERRORS_VARIANCE = "var_errors_variance", FACTORS = "factors", FACTORS_STDERR = "factors_stderr", 
-            FORECASTS_TRANSFORMED="forecasts_transformed", FORECASTS_TRANSFORMED_STDERR = "forecasts_transformed_stderr", 
-            FORECASTS="forecasts", FORECASTS_STDERR = "forecasts_stderr", RESIDUALS = "residuals", 
-            RESIDUALS_STANDARDIZED = "residuals_standardized", RESIDUALS_STANDARDIZED_SMOOTHED = "residuals_standardized_smoothed", 
+            FORECASTS_TRANSFORMED="forecasts_transformed", FORECASTS_TRANSFORMED_MISS="forecasts_transformed_miss",
+            FORECASTS_TRANSFORMED_STDERR = "forecasts_transformed_stderr",
+            FORECASTS="forecasts", FORECASTS_MISS="forecasts_miss", FORECASTS_STDERR = "forecasts_stderr",
+            RESIDUALS = "residuals", RESIDUALS_STANDARDIZED = "residuals_standardized",
+            RESIDUALS_STANDARDIZED_SMOOTHED = "residuals_standardized_smoothed",
             LIKELIHOOD_LL = "likelihood_ll", INITIALIZATION_TYPE = "initialization_type", FACTORS_TYPE = "factors_type",
             HESSIAN = "hessian", GRADIENT = "gradient", HAS_CONVERGED = "has_converged";
     
@@ -51,8 +53,10 @@ public class DfmDictionaries {
             .item(AtomicDictionary.Item.builder().name(FACTORS).description("Estimated factors").outputClass(Matrix.class).build())
             .item(AtomicDictionary.Item.builder().name(FACTORS_STDERR).description("Standard error of the estimated factors").outputClass(Matrix.class).build())
             .item(AtomicDictionary.Item.builder().name(FORECASTS_TRANSFORMED).description("Forecasts of the transformed input over a one-year horizon").outputClass(TsData.class).build())
+            .item(AtomicDictionary.Item.builder().name(FORECASTS_TRANSFORMED_MISS).description("Forecasts of the transformed input over a one-year horizon, with estimates of the missing values").outputClass(TsData.class).build())
             .item(AtomicDictionary.Item.builder().name(FORECASTS_TRANSFORMED_STDERR).description("Standard error of the forecasts of the transformed input").outputClass(TsData.class).build())
             .item(AtomicDictionary.Item.builder().name(FORECASTS).description("Forecasts over a one-year horizon").outputClass(TsData.class).build())
+            .item(AtomicDictionary.Item.builder().name(FORECASTS_MISS).description("Forecasts over a one-year horizon, with estimates of the missing values").outputClass(TsData.class).build())
             .item(AtomicDictionary.Item.builder().name(FORECASTS_STDERR).description("Standard error of the forecasts").outputClass(TsData.class).build())
             .item(AtomicDictionary.Item.builder().name(RESIDUALS).description("One-step forecast errors").outputClass(Matrix.class).build())
             .item(AtomicDictionary.Item.builder().name(RESIDUALS_STANDARDIZED).description("Standardized one-step forecast errors").outputClass(Matrix.class).build())
