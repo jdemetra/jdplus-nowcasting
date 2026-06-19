@@ -39,8 +39,7 @@ This is the **initial release** of jdplus-nowcasting v3 in order to release a fi
 [1.0.2]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/jdemetra/jdplus-nowcasting/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/jdemetra/jdplus-nowcasting/releases/tag/v1.0.0
-
-[STAT]: https://img.shields.io/badge/-STAT-068C09
-[OTHER]: https://img.shields.io/badge/-OTHER-e4e669
 [IO]: https://img.shields.io/badge/-IO-F813F7
+[OTHER]: https://img.shields.io/badge/-OTHER-e4e669
+[STAT]: https://img.shields.io/badge/-STAT-068C09
 [UI]: https://img.shields.io/badge/-UI-5319E7
